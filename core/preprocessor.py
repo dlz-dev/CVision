@@ -8,27 +8,92 @@ import json
 geolocator = Nominatim(user_agent="cv_distance_calculator_luxembourg")
 LUXEMBOURG_COORDS = (49.6116, 6.1319)
 
+# ---------------------------------------------------------------------------
+# Constantes & patterns compilés une seule fois au chargement du module
+# ---------------------------------------------------------------------------
+
+_SECTION_HEADERS = [
+    "Name", "Gender", "Date of Birth", "Address", "Email", "Phone", "Target Role",
+    "Professional Summary", "Education", "Experience",
+    "Skills", "Languages", "Certifications",
+]
+
+# Regex compilé pour découper toutes les sections en une seule passe
+_SECTION_SPLIT_RE = re.compile(
+    r'^(' + '|'.join(re.escape(h) for h in _SECTION_HEADERS) + r'):',
+    re.MULTILINE,
+)
+
+# Regex compilés pour clean_cv_text_for_llm
+_LLM_SECTION_PATTERNS = {
+    section: re.compile(
+        rf"{re.escape(section)}:\s*(.*?)(?=\n(?:{'|'.join(re.escape(s) for s in _SECTION_HEADERS if s != section)}):|\Z)",
+        re.DOTALL | re.IGNORECASE,
+    )
+    for section in ("Education", "Experience")
+}
+
+_LANG_RE        = re.compile(r'^(.+?)\s*[—\-]\s*(.+)$', re.MULTILINE)
+_CERT_YEAR_RE   = re.compile(r'^(.+?)\s*[—\-]\s*(\d{4})$')
+_YEAR_RE        = re.compile(r'\b(20\d{2}|19\d{2})\b')
+_EMAIL_RE       = re.compile(r'[\w.+-]+@[\w-]+\.[a-z]{2,}', re.IGNORECASE)
+_SKILL_LABEL_RE = re.compile(r'^[^:]+:')
+
+LANGUAGE_LEVEL_SCORE: dict[str, int] = {
+    "A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6,
+}
+
+# Dict plat keyword→score (évite la double boucle à chaque appel)
+_DEGREE_KW_SCORE: dict[str, int] = {
+    "phd": 5, "doctorat": 5, "doctor": 5, "d.sc": 5,
+    "master": 4, "msc": 4, "mba": 4, "meng": 4, "ma ": 4,
+    "m.s": 4, "m.a": 4, "magistère": 4,
+    "bachelor": 3, "licence": 3, "licencié": 3,
+    "b.s": 3, "b.a": 3, "bsc": 3, "ba ": 3,
+    "bts": 2, "dut": 2, "associate": 2, "hnd": 2,
+    "hnc": 2, "brevet de technicien": 2,
+    "baccalauréat": 1, "baccalaureat": 1, "high school": 1, "lycée": 1,
+}
+
+# Formats de date du plus au moins fréquent dans les CVs
+_DATE_FORMATS = ['%Y-%m', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m/%Y']
+
+
+# ---------------------------------------------------------------------------
+# Parsing du texte brut
+# ---------------------------------------------------------------------------
+
+def _split_sections(cv_text: str) -> dict[str, str]:
+    """
+    Découpe le CV en sections en une seule passe regex.
+    Retourne un dict {header: contenu}.
+    Remplace tous les appels séparés à extract_section / extract_field.
+    """
+    sections: dict[str, str] = {}
+    matches = list(_SECTION_SPLIT_RE.finditer(cv_text))
+    for i, m in enumerate(matches):
+        key   = m.group(1)
+        start = m.end()
+        end   = matches[i + 1].start() if i + 1 < len(matches) else len(cv_text)
+        sections[key] = cv_text[start:end].strip()
+    return sections
+
 
 def parse_date(date_str: str) -> datetime | None:
-    for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y-%m', '%m/%Y']:
+    """Parse une date en essayant les formats du plus au moins fréquent."""
+    s = date_str.strip()
+    for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(date_str.strip(), fmt)
+            return datetime.strptime(s, fmt)
         except ValueError:
             continue
     return None
 
 
-def extract_section(text: str, section_name: str) -> str:
-    """Extrait une section entière jusqu'au prochain bloc majuscule ou fin de fichier."""
-    pattern = rf"{section_name}:\s*(.*?)(?=\n\n[A-Z]|\Z)"
-    match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-    return match.group(1).strip() if match else ""
-
-
-def extract_field(text: str, field_name: str) -> str | None:
-    """Extrait une valeur sur une seule ligne (ex: 'Name: John Doe')."""
-    match = re.search(rf"{field_name}:\s*(.+)", text, re.IGNORECASE)
-    return match.group(1).strip() if match else None
+def extract_email(cv_text: str) -> str | None:
+    """Extrait l'email même entouré de markdown."""
+    m = _EMAIL_RE.search(cv_text)
+    return m.group(0) if m else None
 
 
 def compute_age(dob: datetime) -> int:
@@ -39,208 +104,192 @@ def compute_age(dob: datetime) -> int:
 def compute_distance_km(address: str) -> float | None:
     """Géocode une adresse et retourne la distance en km depuis Luxembourg Ville."""
     search_address = address
-
-    # Simplification pour les adresses US (ville + pays suffit pour géocoder)
     if "USA" in address.upper():
         parts = [p.strip() for p in address.split(',')]
         if len(parts) >= 2:
             search_address = f"{parts[-2]}, USA"
-
     try:
         location = geolocator.geocode(search_address, timeout=10)
         if location:
-            coords = (location.latitude, location.longitude)
-            return round(geodesic(coords, LUXEMBOURG_COORDS).kilometers, 2)
+            return round(geodesic((location.latitude, location.longitude), LUXEMBOURG_COORDS).kilometers, 2)
     except Exception as e:
         print(f"Géolocalisation échouée pour '{search_address}': {e}")
-
     return None
 
 
-def extract_skills(cv_text: str) -> list[str]:
-    """Extrait les compétences depuis la section Skills (ignore les labels 'Technical:', etc.)."""
-    skills_text = extract_section(cv_text, "Skills")
-    skills = []
+# ---------------------------------------------------------------------------
+# Scores
+# ---------------------------------------------------------------------------
 
-    for line in skills_text.split('\n'):
+def score_language_level(level: str) -> int | None:
+    """Convertit un niveau CECRL (A1–C2) en score entier de 1 à 6."""
+    return LANGUAGE_LEVEL_SCORE.get(level.strip().upper()) if level else None
+
+
+def score_education(degree: str) -> int | None:
+    """
+    Retourne un score ordinal (1–5) selon le niveau du diplôme.
+    Utilise un dict plat précompilé pour éviter la double boucle à chaque appel.
+    """
+    if not degree:
+        return None
+    d = degree.lower()
+    for kw, score in _DEGREE_KW_SCORE.items():
+        if kw in d:
+            return score
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Extraction des sections (acceptent le contenu brut, pas le CV entier)
+# ---------------------------------------------------------------------------
+
+def extract_skills(section_text: str) -> list[str]:
+    skills = []
+    for line in section_text.split('\n'):
         line = line.strip()
         if not line:
             continue
-        # Supprime le label de catégorie s'il y en a un (ex: "Technical: Python, SQL")
-        content = re.sub(r'^[^:]+:', '', line).strip()
+        content = _SKILL_LABEL_RE.sub('', line).strip()
         for skill in content.split(','):
-            skill = skill.strip()
-            if skill:
-                skills.append(skill)
-
+            s = skill.strip()
+            if s:
+                skills.append(s)
     return skills
 
 
-def extract_languages(cv_text: str) -> list[dict]:
-    """Extrait les langues et leur niveau (ex: 'English — C2')."""
-    lang_text = extract_section(cv_text, "Languages")
+def extract_languages(section_text: str) -> list[dict]:
     languages = []
-
-    for match in re.finditer(r'^(.+?)\s*[—\-]\s*(.+)$', lang_text, re.MULTILINE):
+    for m in _LANG_RE.finditer(section_text):
+        level = m.group(2).strip()
         languages.append({
-            "language": match.group(1).strip(),
-            "level":    match.group(2).strip()
+            "language": m.group(1).strip(),
+            "level":    level,
+            "score":    score_language_level(level),
         })
-
     return languages
 
 
-def extract_certifications(cv_text: str) -> list[dict]:
-    """Extrait les certifications avec leur année si présente (ex: 'AWS Certified — 2021').
-    Chaque ligne = une certification. On tente d'y trouver une année, sinon year=None.
-    """
-    cert_text = extract_section(cv_text, "Certifications")
+def extract_certifications(section_text: str) -> list[dict]:
     certifications = []
-
-    for line in cert_text.split('\n'):
+    for line in section_text.split('\n'):
         line = line.strip()
         if not line:
             continue
-
-        # Tente de trouver une année en fin de ligne (après — ou -)
-        match_with_year = re.match(r'^(.+?)\s*[—\-]\s*(\d{4})$', line)
-        if match_with_year:
-            certifications.append({
-                "name": match_with_year.group(1).strip(),
-                "year": int(match_with_year.group(2))
-            })
-        else:
-            certifications.append({
-                "name": line,
-                "year": None
-            })
-
+        m = _CERT_YEAR_RE.match(line)
+        certifications.append(
+            {"name": m.group(1).strip(), "year": int(m.group(2))} if m
+            else {"name": line, "year": None}
+        )
     return certifications
 
 
-def extract_graduation_year(cv_text: str) -> int | None:
-    """Extrait l'année de diplôme depuis la section Education.
-    Format attendu : '... — YYYY' en fin de ligne (ex: 'BSc Statistics — Univ — 2012').
-    """
-    edu_text = extract_section(cv_text, "Education")
+def extract_graduation_year(section_text: str) -> int | None:
+    years = _YEAR_RE.findall(section_text)
+    return int(years[-1]) if years else None
 
-    # Cherche la dernière occurrence d'une année à 4 chiffres dans la section
-    years = re.findall(r'\b(20\d{2}|19\d{2})\b', edu_text)
-    if years:
-        return int(years[-1])  # Prend la dernière année trouvée (la plus récente)
-
-    return None
 
 def clean_cv_text_for_llm(cv_text: str) -> str:
     """
-    Caviarde les sections déjà extraites par Python (Skills, Languages, Certifications)
-    pour éviter d'envoyer des tokens inutiles au LLM.
+    N'envoie au LLM que les sections Education et Experience.
+    Utilise des patterns précompilés au niveau module.
     """
-    cleaned_text = cv_text
-    sections_to_remove = ["Skills", "Languages", "Certifications"]
+    parts = []
+    for section, pattern in _LLM_SECTION_PATTERNS.items():
+        m = pattern.search(cv_text)
+        if m:
+            parts.append(f"{section}:\n{m.group(1).strip()}")
+    return "\n\n".join(parts)
 
-    for section in sections_to_remove:
-        # Supprime la section jusqu'au prochain double saut de ligne suivi d'une majuscule
-        pattern = rf"{section}:\s*(.*?)(?=\n\n[A-Z]|\Z)"
-        cleaned_text = re.sub(pattern, "", cleaned_text, flags=re.DOTALL | re.IGNORECASE)
 
-    # On peut aussi enlever la section Address si elle prend de la place
-    cleaned_text = re.sub(r"Address:\s*(.*?)\n", "", cleaned_text, flags=re.IGNORECASE)
-
-    return cleaned_text.strip()
-
+# ---------------------------------------------------------------------------
+# Calculs sur les expériences
+# ---------------------------------------------------------------------------
 
 def compute_experience_metrics(experiences: list) -> dict:
     """
-    Prend la liste brute des expériences du LLM et calcule:
-    - La durée de chaque poste
-    - Les trous de plus de 1 mois
+    Prend la liste brute des expériences du LLM et calcule :
+    - La durée de chaque poste (en mois)
+    - Les trous de plus de 1 mois entre deux postes
     - L'expérience totale en années
     """
     if not experiences:
         return {"experiences": [], "total_experience_years": 0.0, "experience_gaps_months": []}
 
+    now = datetime.now()
     total_months = 0
-    gaps = []
-    enriched_exps = []
-    parsed_exps = []
+    gaps: list[dict] = []
+    enriched_exps: list[dict] = []
+    parsed_exps: list[dict] = []
 
-    # 1. Convertir les dates en objets datetime pour le tri
     for exp in experiences:
         start_date = parse_date(exp.get("start", ""))
-        end_str = exp.get("end", "").lower()
-        end_date = datetime.now() if end_str == "present" else parse_date(end_str)
+        end_str    = exp.get("end", "").lower()
+        end_date   = now if end_str == "present" else parse_date(end_str)
 
         if start_date:
             parsed_exps.append({"raw": exp, "start": start_date, "end": end_date or start_date})
         else:
-            exp["duration_months"] = None
-            enriched_exps.append(exp)  # Expérience invalide gardée telle quelle
+            enriched_exps.append({**exp, "duration_months": None})
 
-    # Trier chronologiquement
     parsed_exps.sort(key=lambda x: x["start"])
 
-    # 2. Calculer les durées et les gaps
     for i, exp in enumerate(parsed_exps):
-        # Durée du poste
-        diff = exp["end"] - exp["start"]
-        duration_months = round(diff.days / 30.44)
-        total_months += duration_months
+        duration_months = round((exp["end"] - exp["start"]).days / 30.44)
+        total_months   += duration_months
+        enriched_exps.append({**exp["raw"], "duration_months": duration_months})
 
-        exp_dict = exp["raw"].copy()
-        exp_dict["duration_months"] = duration_months
-        enriched_exps.append(exp_dict)
-
-        # Gap avec le poste suivant
         if i < len(parsed_exps) - 1:
-            next_start = parsed_exps[i + 1]["start"]
-            gap_diff = next_start - exp["end"]
-            gap_months = round(gap_diff.days / 30.44)
-
+            gap_months = round((parsed_exps[i + 1]["start"] - exp["end"]).days / 30.44)
             if gap_months > 1:
                 gaps.append({
-                    "from": exp["end"].strftime("%Y-%m"),
-                    "to": next_start.strftime("%Y-%m"),
-                    "duration_months": gap_months
+                    "from":            exp["end"].strftime("%Y-%m"),
+                    "to":              parsed_exps[i + 1]["start"].strftime("%Y-%m"),
+                    "duration_months": gap_months,
                 })
 
     return {
-        "experiences": enriched_exps,
+        "experiences":            enriched_exps,
         "total_experience_years": round(total_months / 12, 1),
-        "experience_gaps_months": gaps
+        "experience_gaps_months": gaps,
     }
 
+
+# ---------------------------------------------------------------------------
+# Point d'entrée principal
+# ---------------------------------------------------------------------------
 
 def pre_process_cv(cv_text: str) -> dict:
-    pre_data = {
-        "name":                    extract_field(cv_text, "Name"),
-        "target_role":             extract_field(cv_text, "Target Role"),
+    """
+    Extrait toutes les données du CV en une seule passe de parsing,
+    puis calcule les champs dérivés (âge, distance, années depuis diplôme).
+    """
+    # Une seule passe pour découper toutes les sections
+    sections = _split_sections(cv_text)
+
+    pre_data: dict = {
+        "target_role":             sections.get("Target Role", "").strip() or None,
         "age":                     None,
         "distance_ville_haute_km": None,
-        "graduation_year":         extract_graduation_year(cv_text),
+        "graduation_year":         extract_graduation_year(sections.get("Education", "")),
         "years_since_graduation":  None,
-        "skills":                  extract_skills(cv_text),
-        "languages":               extract_languages(cv_text),
-        "certifications":          extract_certifications(cv_text),
+        "skills":                  extract_skills(sections.get("Skills", "")),
+        "languages":               extract_languages(sections.get("Languages", "")),
+        "certifications":          extract_certifications(sections.get("Certifications", "")),
     }
 
-    # Âge calculé depuis la date de naissance
-    dob_str = extract_field(cv_text, "Date of Birth")
+    dob_str = sections.get("Date of Birth", "").strip()
     if dob_str:
         dob = parse_date(dob_str)
         if dob:
-            pre_data['age'] = compute_age(dob)
+            pre_data["age"] = compute_age(dob)
 
-    # Âge du diplome depuis la de délivrance
-    pre_data['years_since_graduation'] = datetime.now().year - pre_data['graduation_year']
+    gy = pre_data["graduation_year"]
+    pre_data["years_since_graduation"] = (datetime.now().year - gy) if gy else None
 
-    # Distance depuis Luxembourg Ville Haute
-    address = extract_field(cv_text, "Address")
+    address = sections.get("Address", "").strip() or None
     if address:
-        pre_data['distance_ville_haute_km'] = compute_distance_km(address)
+        pre_data["distance_ville_haute_km"] = compute_distance_km(address)
         time.sleep(1)  # Respect du rate limit Nominatim
 
-    print(json.dumps(pre_data))
     return pre_data
-
-

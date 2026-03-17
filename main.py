@@ -1,10 +1,10 @@
 import yaml
 import json
 from pathlib import Path
+from datetime import datetime
 from core.loader import load_cvs_from_folder
 from core.analyzer import extract_cv
-# N'oublie pas d'importer tes deux nouvelles fonctions
-from core.preprocessor import pre_process_cv, clean_cv_text_for_llm, compute_experience_metrics
+from core.preprocessor import pre_process_cv, clean_cv_text_for_llm, compute_experience_metrics, score_education
 
 with open("config/config.yaml", "r", encoding="utf-8") as file:
     config = yaml.safe_load(file)
@@ -40,10 +40,15 @@ for filename, cv_text in all_cvs.items():
     if education_data:
         education_data["graduation_year"] = pre_processed_data.get("graduation_year")
         education_data["years_since_graduation"] = pre_processed_data.get("years_since_graduation")
+        education_data["education_score"] = score_education(education_data.get("degree"))
 
     # 6. Assemblage final
+    cv_id = filename.replace(".txt", "")
     final_json = {
-        "name": pre_processed_data.get("name"),
+        "meta": {
+            "cv_id": cv_id,
+            "processed_at": datetime.now().strftime("%Y-%m-%d"),
+        },
         "age": pre_processed_data.get("age"),
         "distance_ville_haute_km": pre_processed_data.get("distance_ville_haute_km"),
         "target_role": pre_processed_data.get("target_role"),
