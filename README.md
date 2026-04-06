@@ -17,7 +17,7 @@ Un CV est déposé via une interface web, analysé par un LLM, évalué par un m
 
 ## Aperçu
 
-![CVision Interface](assets/screenshot.png)
+![CVision Interface](assets/frontend_example.png)
 
 ---
 
