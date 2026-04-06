@@ -1,0 +1,21 @@
+# définition des services à lancer
+services:
+  api:
+    # construit l'image docker depuis le Dockerfile
+    build: .
+
+    # nom du conteneur
+    container_name: cvision-api
+
+    # redémarre si le conteneur plante ou si le serveur redémarre
+    restart: always
+
+    # mapper les deux ports (du conteneur et du serveur)
+    ports:
+      - "8000:8000"
+
+    # monte le dossier config en lecture seule (pour config et prompt)
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - ./models:/app/models
