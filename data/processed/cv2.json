@@ -1,0 +1,70 @@
+{
+  "name": "Marcus Liu",
+  "age": 38,
+  "address": "19 Hawthorne Drive, Austin, TX 78745, USA",
+  "target_role": "Operations Manager",
+  "education": {
+    "degree": "Bachelor of Business Administration",
+    "field": "Supply Chain Management",
+    "school": "University of Texas at Austin",
+    "graduation_year": 2010,
+    "years_since_graduation": 16
+  },
+  "experiences": [
+    {
+      "title": "Logistics Coordinator",
+      "company": "Lone Star Distribution",
+      "start": "2010-06",
+      "end": "2014-03",
+      "duration_months": 45,
+      "accomplishments": [
+        "Reduced transportation costs by 12% through route optimization",
+        "Coordinated daily shipments and inventory tracking",
+        "Implemented vendor performance monitoring system"
+      ]
+    },
+    {
+      "title": "Operations Manager",
+      "company": "Central Freight Solutions",
+      "start": "2014-04",
+      "end": "2025-11",
+      "duration_months": 137,
+      "accomplishments": [
+        "Improved warehouse productivity by 22% within two years",
+        "Managed a team of 35 staff across logistics and procurement",
+        "Oversaw annual operating budget of $8M"
+      ]
+    }
+  ],
+  "total_experience_years": 15.25,
+  "experience_gaps_months": [],
+  "skills": [
+    "SAP ERP",
+    "Microsoft Excel",
+    "Power BI",
+    "Oracle SCM",
+    "Lean management",
+    "Process mapping",
+    "Demand forecasting",
+    "Inventory control",
+    "Budgeting",
+    "Team supervision",
+    "Performance management"
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "level": "C2"
+    },
+    {
+      "language": "Mandarin",
+      "level": "C1"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Supply Chain Professional",
+      "year": 2015
+    }
+  ]
+}

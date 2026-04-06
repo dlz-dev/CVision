@@ -1,0 +1,70 @@
+{
+  "name": "Daniel Okafor",
+  "age": 41,
+  "address": "12 Admiralty Way, Lekki, Lagos 106104, Nigeria",
+  "target_role": "Financial Controller",
+  "education": {
+    "degree": "Bachelor of Science",
+    "field": "Accounting",
+    "school": "University of Lagos",
+    "graduation_year": 2007,
+    "years_since_graduation": 19
+  },
+  "experiences": [
+    {
+      "title": "Accountant",
+      "company": "Meridian Services Ltd",
+      "start": "2007-08",
+      "end": "2012-05",
+      "duration_months": 58,
+      "accomplishments": [
+        "Reduced reporting errors by 20% through process standardization",
+        "Prepared monthly and annual financial statements",
+        "Coordinated external audit documentation"
+      ]
+    },
+    {
+      "title": "Financial Controller",
+      "company": "Atlantic Manufacturing Plc",
+      "start": "2012-06",
+      "end": "2025-12",
+      "duration_months": 162,
+      "accomplishments": [
+        "Improved cash flow forecasting accuracy by 17%",
+        "Supervised accounting team of 12 staff members",
+        "Managed annual budget exceeding $25M"
+      ]
+    }
+  ],
+  "total_experience_years": 18.5,
+  "experience_gaps_months": [],
+  "skills": [
+    "QuickBooks",
+    "SAP FICO",
+    "Microsoft Excel",
+    "Hyperion",
+    "Financial modeling",
+    "Risk assessment",
+    "Internal auditing",
+    "Variance analysis",
+    "Strategic planning",
+    "Team development",
+    "Compliance oversight"
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "level": "C2"
+    },
+    {
+      "language": "Yoruba",
+      "level": "C1"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Chartered Accountant (ICAN)",
+      "year": 2011
+    }
+  ]
+}

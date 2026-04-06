@@ -1,0 +1,71 @@
+{
+  "name": "Hannah Schneider",
+  "age": 32,
+  "address": "88 Lindenstraße, 50674 Cologne, Germany",
+  "target_role": "Software Engineering Lead",
+  "education": {
+    "degree": "Master of Science",
+    "field": "Computer Science",
+    "school": "University of Bonn",
+    "graduation_year": 2016,
+    "years_since_graduation": 10
+  },
+  "experiences": [
+    {
+      "title": "Software Developer",
+      "company": "RheinTech Systems",
+      "start": "2016-09",
+      "end": "2020-12",
+      "duration_months": 52,
+      "accomplishments": [
+        "Enhanced application performance by 30% through microservices migration",
+        "Developed RESTful APIs for enterprise clients",
+        "Contributed to CI/CD pipeline implementation"
+      ]
+    },
+    {
+      "title": "Senior Software Engineer",
+      "company": "CloudCore Solutions",
+      "start": "2021-01",
+      "end": "present",
+      "duration_months": 61,
+      "accomplishments": [
+        "Led architecture redesign reducing system downtime by 15%",
+        "Managed a team of 6 engineers in agile sprints",
+        "Oversaw cloud infrastructure deployment on AWS"
+      ]
+    }
+  ],
+  "total_experience_years": 9.17,
+  "experience_gaps_months": [],
+  "skills": [
+    "Java",
+    "Kotlin",
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "Microservices architecture",
+    "Test-driven development",
+    "Agile Scrum",
+    "DevOps practices",
+    "Technical mentoring",
+    "Sprint planning",
+    "Resource allocation"
+  ],
+  "languages": [
+    {
+      "language": "German",
+      "level": "C2"
+    },
+    {
+      "language": "English",
+      "level": "C1"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "AWS Certified Solutions Architect",
+      "year": 2022
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "Sophie Dubois",
+  "age": 29,
+  "address": "54 Rue des Érables, 69003 Lyon, France",
+  "target_role": "Marketing Manager",
+  "education": {
+    "degree": "Master of Arts",
+    "field": "Marketing",
+    "school": "University of Lyon",
+    "graduation_year": 2018,
+    "years_since_graduation": 8
+  },
+  "experiences": [
+    {
+      "title": "Marketing Coordinator",
+      "company": "Rhône Retail Group",
+      "start": "2018-09",
+      "end": "2021-02",
+      "duration_months": 29,
+      "accomplishments": [
+        "Increased social media engagement by 28% within one year",
+        "Assisted in campaign planning and market research",
+        "Managed content calendars and vendor relations"
+      ]
+    },
+    {
+      "title": "Marketing Manager",
+      "company": "Lumière Brands",
+      "start": "2021-03",
+      "end": "2025-12",
+      "duration_months": 58,
+      "accomplishments": [
+        "Boosted online sales revenue by 19% through targeted digital campaigns",
+        "Led a team of 5 marketing specialists",
+        "Directed brand repositioning initiatives"
+      ]
+    }
+  ],
+  "total_experience_years": 7.25,
+  "experience_gaps_months": [],
+  "skills": [
+    "Google Analytics",
+    "Meta Ads Manager",
+    "HubSpot",
+    "Adobe Creative Suite",
+    "Market segmentation",
+    "SEO strategy",
+    "Campaign optimization",
+    "Consumer behavior analysis",
+    "Team leadership",
+    "Budget planning",
+    "Strategic partnerships"
+  ],
+  "languages": [
+    {
+      "language": "French",
+      "level": "C2"
+    },
+    {
+      "language": "English",
+      "level": "C1"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Google Ads Certification",
+      "year": 2019
+    }
+  ]
+}
