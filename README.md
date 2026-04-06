@@ -15,6 +15,12 @@ Un CV est déposé via une interface web, analysé par un LLM, évalué par un m
 
 ---
 
+## Aperçu
+
+![CVision Interface](assets/screenshot.png)
+
+---
+
 ## Architecture
 
 ```
@@ -128,4 +134,4 @@ python train.py  # entraîne le modèle
 
 ## Équipe
 
-Projet réalisé dans le cadre du cours STV — HELMo Bloc 2 Q2.
+Projet réalisé dans le cadre du cours : Projet Global en Intelligence Artificielle — HELMo Bloc 2 Q2.
