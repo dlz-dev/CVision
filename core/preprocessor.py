@@ -3,7 +3,6 @@ import time
 from datetime import datetime
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-import json
 
 geolocator = Nominatim(user_agent="cv_distance_calculator_luxembourg")
 LUXEMBOURG_COORDS = (49.6116, 6.1319)
@@ -18,13 +17,11 @@ _SECTION_HEADERS = [
     "Skills", "Languages", "Certifications",
 ]
 
-# Regex compilé pour découper toutes les sections en une seule passe
 _SECTION_SPLIT_RE = re.compile(
     r'^(' + '|'.join(re.escape(h) for h in _SECTION_HEADERS) + r'):',
     re.MULTILINE,
 )
 
-# Regex compilés pour clean_cv_text_for_llm
 _LLM_SECTION_PATTERNS = {
     section: re.compile(
         rf"{re.escape(section)}:\s*(.*?)(?=\n(?:{'|'.join(re.escape(s) for s in _SECTION_HEADERS if s != section)}):|\Z)",
@@ -38,12 +35,12 @@ _CERT_YEAR_RE   = re.compile(r'^(.+?)\s*[—\-]\s*(\d{4})$')
 _YEAR_RE        = re.compile(r'\b(20\d{2}|19\d{2})\b')
 _EMAIL_RE       = re.compile(r'[\w.+-]+@[\w-]+\.[a-z]{2,}', re.IGNORECASE)
 _SKILL_LABEL_RE = re.compile(r'^[^:]+:')
+_US_FORMAT_RE   = re.compile(r'\b[A-Z]{2}\b|\b\d{5}\b')
 
 LANGUAGE_LEVEL_SCORE: dict[str, int] = {
     "A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6,
 }
 
-# Dict plat keyword→score (évite la double boucle à chaque appel)
 _DEGREE_KW_SCORE: dict[str, int] = {
     "phd": 5, "doctorat": 5, "doctor": 5, "d.sc": 5,
     "master": 4, "msc": 4, "mba": 4, "meng": 4, "ma ": 4,
@@ -55,7 +52,6 @@ _DEGREE_KW_SCORE: dict[str, int] = {
     "baccalauréat": 1, "baccalaureat": 1, "high school": 1, "lycée": 1,
 }
 
-# Formats de date du plus au moins fréquent dans les CVs
 _DATE_FORMATS = ['%Y-%m', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m/%Y']
 
 
@@ -64,11 +60,7 @@ _DATE_FORMATS = ['%Y-%m', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m/%Y']
 # ---------------------------------------------------------------------------
 
 def _split_sections(cv_text: str) -> dict[str, str]:
-    """
-    Découpe le CV en sections en une seule passe regex.
-    Retourne un dict {header: contenu}.
-    Remplace tous les appels séparés à extract_section / extract_field.
-    """
+    """Découpe le CV en sections en une seule passe regex."""
     sections: dict[str, str] = {}
     matches = list(_SECTION_SPLIT_RE.finditer(cv_text))
     for i, m in enumerate(matches):
@@ -81,17 +73,18 @@ def _split_sections(cv_text: str) -> dict[str, str]:
 
 def parse_date(date_str: str) -> datetime | None:
     """Parse une date en essayant les formats du plus au moins fréquent."""
-    s = date_str.strip()
+    s = date_str.strip().lower()
+    if s == "present":
+        return datetime.now()
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(s, fmt)
+            return datetime.strptime(date_str.strip(), fmt)
         except ValueError:
             continue
     return None
 
 
 def extract_email(cv_text: str) -> str | None:
-    """Extrait l'email même entouré de markdown."""
     m = _EMAIL_RE.search(cv_text)
     return m.group(0) if m else None
 
@@ -101,19 +94,46 @@ def compute_age(dob: datetime) -> int:
     return now.year - dob.year - ((now.month, now.day) < (dob.month, dob.day))
 
 
+def _geocode_with_fallback(address: str):
+    """
+    Tente d'obtenir les coordonnées GPS en 3 passes :
+    1. Adresse exacte
+    2. Adresse + ", USA" si format américain détecté
+    3. Adresse simplifiée (sans numéro/rue)
+    """
+    location = geolocator.geocode(address, timeout=10)
+    if location:
+        return location
+
+    # Tentative 2 : ajout de USA si format américain détecté
+    if _US_FORMAT_RE.search(address):
+        address_lower = address.lower()
+        if "usa" not in address_lower and "united states" not in address_lower:
+            time.sleep(1)
+            location = geolocator.geocode(address + ", USA", timeout=10)
+            if location:
+                return location
+
+    # Tentative 3 : simplification (ville + état/pays uniquement)
+    parts = [p.strip() for p in address.split(',')]
+    if len(parts) > 1:
+        simplified = ", ".join(parts[1:])
+        if _US_FORMAT_RE.search(simplified) and "usa" not in simplified.lower():
+            simplified += ", USA"
+        time.sleep(1)
+        return geolocator.geocode(simplified, timeout=10)
+
+    return None
+
+
 def compute_distance_km(address: str) -> float | None:
     """Géocode une adresse et retourne la distance en km depuis Luxembourg Ville."""
-    search_address = address
-    if "USA" in address.upper():
-        parts = [p.strip() for p in address.split(',')]
-        if len(parts) >= 2:
-            search_address = f"{parts[-2]}, USA"
     try:
-        location = geolocator.geocode(search_address, timeout=10)
+        location = _geocode_with_fallback(address)
         if location:
             return round(geodesic((location.latitude, location.longitude), LUXEMBOURG_COORDS).kilometers, 2)
     except Exception as e:
-        print(f"Géolocalisation échouée pour '{search_address}': {e}")
+        print(f"Géolocalisation échouée pour '{address}': {e}")
     return None
 
 
@@ -122,15 +142,10 @@ def compute_distance_km(address: str) -> float | None:
 # ---------------------------------------------------------------------------
 
 def score_language_level(level: str) -> int | None:
-    """Convertit un niveau CECRL (A1–C2) en score entier de 1 à 6."""
     return LANGUAGE_LEVEL_SCORE.get(level.strip().upper()) if level else None
 
 
 def score_education(degree: str) -> int | None:
-    """
-    Retourne un score ordinal (1–5) selon le niveau du diplôme.
-    Utilise un dict plat précompilé pour éviter la double boucle à chaque appel.
-    """
     if not degree:
         return None
     d = degree.lower()
@@ -141,7 +156,7 @@ def score_education(degree: str) -> int | None:
 
 
 # ---------------------------------------------------------------------------
-# Extraction des sections (acceptent le contenu brut, pas le CV entier)
+# Extraction des sections
 # ---------------------------------------------------------------------------
 
 def extract_skills(section_text: str) -> list[str]:
@@ -190,10 +205,7 @@ def extract_graduation_year(section_text: str) -> int | None:
 
 
 def clean_cv_text_for_llm(cv_text: str) -> str:
-    """
-    N'envoie au LLM que les sections Education et Experience.
-    Utilise des patterns précompilés au niveau module.
-    """
+    """N'envoie au LLM que les sections Education et Experience."""
     parts = []
     for section, pattern in _LLM_SECTION_PATTERNS.items():
         m = pattern.search(cv_text)
@@ -208,10 +220,10 @@ def clean_cv_text_for_llm(cv_text: str) -> str:
 
 def compute_experience_metrics(experiences: list) -> dict:
     """
-    Prend la liste brute des expériences du LLM et calcule :
-    - La durée de chaque poste (en mois)
-    - Les trous de plus de 1 mois entre deux postes
-    - L'expérience totale en années
+    Calcule pour chaque expérience :
+    - la durée en mois
+    - les trous de plus de 1 mois entre postes
+    - l'expérience totale en années
     """
     if not experiences:
         return {"experiences": [], "total_experience_years": 0.0, "experience_gaps_months": []}
@@ -224,8 +236,8 @@ def compute_experience_metrics(experiences: list) -> dict:
 
     for exp in experiences:
         start_date = parse_date(exp.get("start", ""))
-        end_str    = exp.get("end", "").lower()
-        end_date   = now if end_str == "present" else parse_date(end_str)
+        end_str    = exp.get("end", "").strip()
+        end_date   = parse_date(end_str) if end_str else None
 
         if start_date:
             parsed_exps.append({"raw": exp, "start": start_date, "end": end_date or start_date})
@@ -264,15 +276,16 @@ def pre_process_cv(cv_text: str) -> dict:
     Extrait toutes les données du CV en une seule passe de parsing,
     puis calcule les champs dérivés (âge, distance, années depuis diplôme).
     """
-    # Une seule passe pour découper toutes les sections
     sections = _split_sections(cv_text)
+
+    graduation_year = extract_graduation_year(sections.get("Education", ""))
 
     pre_data: dict = {
         "target_role":             sections.get("Target Role", "").strip() or None,
         "age":                     None,
         "distance_ville_haute_km": None,
-        "graduation_year":         extract_graduation_year(sections.get("Education", "")),
-        "years_since_graduation":  None,
+        "graduation_year":         graduation_year,
+        "years_since_graduation":  (datetime.now().year - graduation_year) if graduation_year else None,
         "skills":                  extract_skills(sections.get("Skills", "")),
         "languages":               extract_languages(sections.get("Languages", "")),
         "certifications":          extract_certifications(sections.get("Certifications", "")),
@@ -283,9 +296,6 @@ def pre_process_cv(cv_text: str) -> dict:
         dob = parse_date(dob_str)
         if dob:
             pre_data["age"] = compute_age(dob)
-
-    gy = pre_data["graduation_year"]
-    pre_data["years_since_graduation"] = (datetime.now().year - gy) if gy else None
 
     address = sections.get("Address", "").strip() or None
     if address:
