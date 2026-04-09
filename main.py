@@ -12,7 +12,7 @@ with open("config/config.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 # Afin de revenir à un point dans les json
-RESUME_FROM = "cv_0200" # None par défaut si pas de json (ex de valeur : cv_0103)
+RESUME_FROM = "cv_0165" # None par défaut si pas de json (ex de valeur : cv_0103)
 
 all_cvs = load_cvs_from_folder("data/raw")
 Path("data/extracted").mkdir(parents=True, exist_ok=True)
