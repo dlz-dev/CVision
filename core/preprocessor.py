@@ -96,32 +96,55 @@ def compute_age(dob: datetime) -> int:
 
 def _geocode_with_fallback(address: str):
     """
-    Tente d'obtenir les coordonnées GPS en 3 passes :
+    Tente d'obtenir les coordonnées GPS en 5 passes progressives :
     1. Adresse exacte
     2. Adresse + ", USA" si format américain détecté
     3. Adresse simplifiée (sans numéro/rue)
+    4. Ville + Pays (nettoyé des codes postaux perturbateurs)
+    5. Pays uniquement
     """
+    # Tentative 1 : Adresse exacte
     location = geolocator.geocode(address, timeout=10)
     if location:
         return location
 
+    address_lower = address.lower()
+
     # Tentative 2 : ajout de USA si format américain détecté
     if _US_FORMAT_RE.search(address):
-        address_lower = address.lower()
         if "usa" not in address_lower and "united states" not in address_lower:
             time.sleep(1)
             location = geolocator.geocode(address + ", USA", timeout=10)
             if location:
                 return location
 
-    # Tentative 3 : simplification (ville + état/pays uniquement)
     parts = [p.strip() for p in address.split(',')]
+
+    # Tentative 3 : simplification (retrait de la première partie, souvent la rue)
     if len(parts) > 1:
         simplified = ", ".join(parts[1:])
         if _US_FORMAT_RE.search(simplified) and "usa" not in simplified.lower():
             simplified += ", USA"
         time.sleep(1)
-        return geolocator.geocode(simplified, timeout=10)
+        location = geolocator.geocode(simplified, timeout=10)
+        if location:
+            return location
+
+    # Tentative 4 : Ville + Pays (très robuste pour l'international)
+    # Exemple: "877 Pinecrest Street, 41659 Warsaw, Poland" -> "Warsaw, Poland"
+    if len(parts) >= 2:
+        city_part = parts[-2]
+        country_part = parts[-1]
+
+        # On retire les chiffres (codes postaux souvent invalides/non reconnus)
+        city_clean = re.sub(r'\d+', '', city_part).strip()
+
+        if city_clean:
+            ultra_simplified = f"{city_clean}, {country_part}"
+            time.sleep(1)
+            location = geolocator.geocode(ultra_simplified, timeout=10)
+            if location:
+                return location
 
     return None
 
