@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "cv_id": "cv3.txt",
+    "processed_at": "2026-04-07"
+  },
+  "age": 32,
+  "distance_ville_haute_km": 157.63,
+  "target_role": "Software Engineering Lead",
+  "education": {
+    "degree": "Master of Science",
+    "field": "Computer Science",
+    "school": "University of Bonn",
+    "graduation_year": 2016,
+    "years_since_graduation": 10,
+    "education_score": 4
+  },
+  "experiences": [
+    {
+      "title": "Software Developer",
+      "company": "RheinTech Systems",
+      "start": "2016-09",
+      "end": "2020-12",
+      "accomplishments": [
+        "Enhanced application performance by 30% through microservices migration.",
+        "Developed RESTful APIs for enterprise clients.",
+        "Contributed to CI/CD pipeline implementation."
+      ],
+      "duration_months": 51
+    },
+    {
+      "title": "Senior Software Engineer",
+      "company": "CloudCore Solutions",
+      "start": "2021-01",
+      "end": "present",
+      "accomplishments": [
+        "Led architecture redesign reducing system downtime by 15%.",
+        "Managed a team of 6 engineers in agile sprints.",
+        "Oversaw cloud infrastructure deployment on AWS."
+      ],
+      "duration_months": 63
+    }
+  ],
+  "total_experience_years": 9.5,
+  "experience_gaps_months": [],
+  "skills": [
+    "Java",
+    "Kotlin",
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "Microservices architecture",
+    "Test-driven development",
+    "Agile Scrum",
+    "DevOps practices",
+    "Technical mentoring",
+    "Sprint planning",
+    "Resource allocation"
+  ],
+  "languages": [
+    {
+      "language": "German",
+      "level": "C2",
+      "score": 6
+    },
+    {
+      "language": "English",
+      "level": "C1",
+      "score": 5
+    }
+  ],
+  "certifications": [
+    {
+      "name": "AWS Certified Solutions Architect",
+      "year": 2022
+    }
+  ]
+}

@@ -1,7 +1,6 @@
 import json
 import re
 import time
-from pathlib import Path
 from groq import Groq
 
 _MD_FENCE_RE = re.compile(r"^```(?:json)?", re.MULTILINE)
@@ -12,13 +11,12 @@ RETRY_DELAY_SEC = 3      # Délai (secondes) entre chaque tentative
 SKIP_ON_FAILURE = False  # True → le fichier est ignoré (mis en quarantaine) après MAX_RETRIES échecs
                          # False → l'exception est propagée et arrête le pipeline
 
-def load_prompt() -> str:
-    return Path("config/prompt.txt").read_text(encoding="utf-8")
+_PROMPT_TEMPLATE = Path("config/prompt.txt").read_text(encoding="utf-8")
 
 
 def extract_cv(cv_text: str, config: dict) -> dict:
     client = Groq(api_key=config["api"]["api_key"])
-    prompt_content = load_prompt().replace("{cv_text}", cv_text)
+    prompt_content = _PROMPT_TEMPLATE.replace("{cv_text}", cv_text)
 
     last_exception = None
 

@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "cv_id": "cv5.txt",
+    "processed_at": "2026-04-07"
+  },
+  "age": 29,
+  "distance_ville_haute_km": 437.36,
+  "target_role": "Marketing Manager",
+  "education": {
+    "degree": "Master of Arts",
+    "field": "Marketing",
+    "school": "University of Lyon",
+    "graduation_year": 2018,
+    "years_since_graduation": 8,
+    "education_score": 4
+  },
+  "experiences": [
+    {
+      "title": "Marketing Coordinator",
+      "company": "Rhône Retail Group",
+      "start": "2018-09",
+      "end": "2021-02",
+      "accomplishments": [
+        "Increased social media engagement by 28% within one year.",
+        "Assisted in campaign planning and market research.",
+        "Managed content calendars and vendor relations."
+      ],
+      "duration_months": 29
+    },
+    {
+      "title": "Marketing Manager",
+      "company": "Lumière Brands",
+      "start": "2021-03",
+      "end": "2025-12",
+      "accomplishments": [
+        "Boosted online sales revenue by 19% through targeted digital campaigns.",
+        "Led a team of 5 marketing specialists.",
+        "Directed brand repositioning initiatives."
+      ],
+      "duration_months": 57
+    }
+  ],
+  "total_experience_years": 7.2,
+  "experience_gaps_months": [],
+  "skills": [
+    "Google Analytics",
+    "Meta Ads Manager",
+    "HubSpot",
+    "Adobe Creative Suite",
+    "Market segmentation",
+    "SEO strategy",
+    "Campaign optimization",
+    "Consumer behavior analysis",
+    "Team leadership",
+    "Budget planning",
+    "Strategic partnerships"
+  ],
+  "languages": [
+    {
+      "language": "French",
+      "level": "C2",
+      "score": 6
+    },
+    {
+      "language": "English",
+      "level": "C1",
+      "score": 5
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Google Ads Certification",
+      "year": 2019
+    }
+  ]
+}

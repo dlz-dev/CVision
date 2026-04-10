@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "cv_id": "cv1.txt",
+    "processed_at": "2026-04-07"
+  },
+  "age": 35,
+  "distance_ville_haute_km": 8038.04,
+  "target_role": "Senior Data Analyst",
+  "education": {
+    "degree": "Bachelor of Science",
+    "field": "Statistics",
+    "school": "University of Colorado Boulder",
+    "graduation_year": 2012,
+    "years_since_graduation": 14,
+    "education_score": 3
+  },
+  "experiences": [
+    {
+      "title": "Data Analyst",
+      "company": "Rocky Mountain Analytics",
+      "start": "2012-07",
+      "end": "2016-09",
+      "accomplishments": [
+        "Improved reporting efficiency by 25% through dashboard automation.",
+        "Conducted statistical analyses to support marketing and sales teams.",
+        "Developed data validation protocols."
+      ],
+      "duration_months": 50
+    },
+    {
+      "title": "Senior Data Analyst",
+      "company": "Elevation Insights",
+      "start": "2016-10",
+      "end": "2025-12",
+      "accomplishments": [
+        "Increased forecast accuracy by 18% using predictive modeling techniques.",
+        "Led a team of 4 analysts in enterprise reporting initiatives.",
+        "Standardized KPI tracking across three departments."
+      ],
+      "duration_months": 110
+    }
+  ],
+  "total_experience_years": 13.3,
+  "experience_gaps_months": [],
+  "skills": [
+    "Python",
+    "R",
+    "SQL",
+    "Tableau",
+    "Power BI",
+    "Regression analysis",
+    "Time-series forecasting",
+    "A/B testing",
+    "Data visualization",
+    "Team leadership",
+    "Stakeholder communication",
+    "Project coordination"
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "level": "C2",
+      "score": 6
+    },
+    {
+      "language": "Spanish",
+      "level": "B2",
+      "score": 4
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Analytics Professional",
+      "year": 2018
+    }
+  ]
+}

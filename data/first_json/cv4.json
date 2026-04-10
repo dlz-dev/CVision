@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "cv_id": "cv4.txt",
+    "processed_at": "2026-04-07"
+  },
+  "age": 41,
+  "distance_ville_haute_km": 4791.28,
+  "target_role": "Financial Controller",
+  "education": {
+    "degree": "Bachelor of Science",
+    "field": "Accounting",
+    "school": "University of Lagos",
+    "graduation_year": 2007,
+    "years_since_graduation": 19,
+    "education_score": 3
+  },
+  "experiences": [
+    {
+      "title": "Accountant",
+      "company": "Meridian Services Ltd",
+      "start": "2007-08",
+      "end": "2012-05",
+      "accomplishments": [
+        "Reduced reporting errors by 20% through process standardization.",
+        "Prepared monthly and annual financial statements.",
+        "Coordinated external audit documentation."
+      ],
+      "duration_months": 57
+    },
+    {
+      "title": "Financial Controller",
+      "company": "Atlantic Manufacturing Plc",
+      "start": "2012-06",
+      "end": "2025-12",
+      "accomplishments": [
+        "Improved cash flow forecasting accuracy by 17%.",
+        "Supervised accounting team of 12 staff members.",
+        "Managed annual budget exceeding $25M."
+      ],
+      "duration_months": 162
+    }
+  ],
+  "total_experience_years": 18.2,
+  "experience_gaps_months": [],
+  "skills": [
+    "QuickBooks",
+    "SAP FICO",
+    "Microsoft Excel",
+    "Hyperion",
+    "Financial modeling",
+    "Risk assessment",
+    "Internal auditing",
+    "Variance analysis",
+    "Strategic planning",
+    "Team development",
+    "Compliance oversight"
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "level": "C2",
+      "score": 6
+    },
+    {
+      "language": "Yoruba",
+      "level": "C1",
+      "score": 5
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Chartered Accountant (ICAN)",
+      "year": 2011
+    }
+  ]
+}
