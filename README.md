@@ -134,4 +134,4 @@ python train.py  # entraîne le modèle
 
 ## Équipe
 
-Projet réalisé dans le cadre du cours : Projet Global en Intelligence Artificielle — HELMo Bloc 2 Q2.
+Projet réalisé dans le cadre du cours : Projet Global en Intelligence Artificielle — HELMo Bloc 2 Q2
