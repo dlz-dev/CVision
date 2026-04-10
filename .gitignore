@@ -23,6 +23,7 @@ data/student_labels.csv
 data/cv_dataset.csv
 data/raw/*
 data/extracted/*
+data/*
 
 # SAUF les fichiers .gitkeep (pour forcer Git à suivre les dossiers vides)
 !data/raw/.gitkeep
