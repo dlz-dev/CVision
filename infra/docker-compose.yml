@@ -1,0 +1,19 @@
+services:
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: ../infra/Dockerfile.backend
+    container_name: cvision-api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../backend/.env
+    volumes:
+      - ../backend/data:/app/data
+      - ../backend/models:/app/models
+
+networks:
+  default:
+    name: cvision-network

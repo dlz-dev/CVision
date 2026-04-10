@@ -1,33 +1,32 @@
-# Environnement virtuel
+# Secrets — ne jamais commiter
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
 .venv/
 venv/
-ENV/
 
-# Configuration sensible (OpenAI keys, etc.)
-config/config.yaml
-config/prompt.txt
-.env
+# Données et modèles (potentiellement volumineux ou sensibles)
+backend/data/raw/
+backend/data/extracted/
+backend/data/quarantaine/
+backend/models/*.pkl
 
-# PyCharm / IDE
+# Notebooks — outputs nettoyés automatiquement si tu utilises nbstripout
+# Sinon, décommente la ligne suivante :
+# notebooks/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.vscode/
 .idea/
-*.iml
-
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Données locales (pour ne pas commit les CV de test sur GitHub)
-# Ignorer tout le contenu des dossiers data
-data/student_labels.csv
-data/cv_dataset.csv
-data/raw/*
-data/extracted/*
-data/*
-
-# SAUF les fichiers .gitkeep (pour forcer Git à suivre les dossiers vides)
-!data/raw/.gitkeep
-!data/extracted/.gitkeep
-
-# Logs
-*.log
+*.DS_Store
