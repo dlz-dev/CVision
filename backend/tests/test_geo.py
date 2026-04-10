@@ -1,10 +1,9 @@
-import os
 from pathlib import Path
 import traceback
 import time
 import random
 
-from core.preprocessor import pre_process_cv
+from backend.core import pre_process_cv
 
 
 def test_cv_processing(data_folder="data/raw", limit=None):

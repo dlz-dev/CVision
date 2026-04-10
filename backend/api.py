@@ -1,16 +1,33 @@
-import yaml
+import os
+from pathlib import Path
+
 import joblib
+import pandas as pd
 from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+
 from core.analyzer import extract_cv
 from core.features import cv_to_features
-from core.preprocessor import pre_process_cv, compute_experience_metrics
+from core.preprocessor import clean_cv_text_for_llm, compute_experience_metrics, pre_process_cv
 
-app = FastAPI()
+_BASE = Path(__file__).parents[1]
 
-with open("config/config.yaml", "r", encoding="utf-8") as file:
-    config = yaml.safe_load(file)
+MODEL_PATH = _BASE / "models" / "model.pkl"
 
-model = joblib.load("models/model.pkl")
+app = FastAPI(title="CVision API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        os.getenv("FRONTEND_URL", "http://localhost:5173"),
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+model = joblib.load(MODEL_PATH)
 
 
 def predict(cv: dict) -> str:
@@ -22,13 +39,8 @@ def predict(cv: dict) -> str:
 async def process_cv(file: UploadFile = File(...)):
     cv_text = (await file.read()).decode("utf-8")
 
-    # LLM : extrait éducation + expériences avec les dates
-    llm_data = extract_cv(cv_text, config)
-
-    # Règles : extrait âge, compétences, langues, certifications, années depuis diplôme
+    llm_data = extract_cv(cv_text)
     pre_data = pre_process_cv(cv_text)
-
-    # Calcule total_experience_years et gaps depuis les dates retournées par le LLM
     exp_metrics = compute_experience_metrics(llm_data.get("experiences", []))
 
     result = {
@@ -42,4 +54,4 @@ async def process_cv(file: UploadFile = File(...)):
     result["decision"] = predict(result)
     return result
 
-# uvicorn api:app --reload
+# uvicorn api.api:app --reload
