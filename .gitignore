@@ -17,6 +17,7 @@ backend/data/raw/
 backend/data/extracted/
 backend/data/quarantaine/
 backend/models/*.pkl
+backend/data/*
 
 # Notebooks — outputs nettoyés automatiquement si tu utilises nbstripout
 # Sinon, décommente la ligne suivante :
