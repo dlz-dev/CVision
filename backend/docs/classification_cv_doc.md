@@ -25,21 +25,21 @@ Lors de l'exploration, on constate que le jeu de données est fortement déséqu
 
 ### Variables brutes (issues du dataset original)
 
-| Variable | Type | Description |
-|---|---|---|
-| `age` | Numérique | Âge du candidat |
-| `distance_ville_haute_km` | Numérique | Distance entre le domicile et la ville du poste (en km) |
-| `total_experience_years` | Numérique | Nombre total d'années d'expérience |
-| `nb_gaps` | Numérique | Nombre de trous dans le parcours professionnel |
-| `total_gap_months` | Numérique | Durée totale des trous (en mois) — utilisée dans le feature engineering, non retenue directement en V4 |
-| `education_score` | Numérique | Score numérique associé au niveau de formation |
-| `lang_fr`, `lang_en`, `lang_de`, `lang_es`, `lang_it` | Binaire (0/1) | Indicateurs de maîtrise des langues |
-| `lang_other_score_sum` | Numérique | Score agrégé des autres langues déclarées |
+| Variable | Type         | Description |
+|---|--------------|---|
+| `age` | Numérique    | Âge du candidat |
+| `distance_ville_haute_km` | Numérique    | Distance entre le domicile et la ville du poste (en km) |
+| `total_experience_years` | Numérique    | Nombre total d'années d'expérience |
+| `nb_gaps` | Numérique    | Nombre de trous dans le parcours professionnel |
+| `total_gap_months` | Numérique    | Durée totale des trous (en mois) — utilisée dans le feature engineering, non retenue directement en V4 |
+| `education_score` | Numérique    | Score numérique associé au niveau de formation |
+| `lang_fr`, `lang_en`, `lang_de`, `lang_es`, `lang_it` | Numérique    | Indicateurs de maîtrise des langues |
+| `lang_other_score_sum` | Numérique    | Score agrégé des autres langues déclarées |
 | `target_role` | Catégorielle | Poste visé par le candidat |
 | `education_degree` | Catégorielle | Diplôme obtenu |
 | `education_field` | Catégorielle | Domaine d'études |
-| `skills` | Texte | Liste des compétences déclarées (séparées par des virgules) |
-| `certifications` | Texte | Liste des certifications obtenues (séparées par des virgules) |
+| `skills` | Texte        | Liste des compétences déclarées (séparées par des virgules) |
+| `certifications` | Texte        | Liste des certifications obtenues (séparées par des virgules) |
 
 ### Variables créées par Feature Engineering
 
