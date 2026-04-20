@@ -23,7 +23,7 @@ OUTPUT_CSV = _BACKEND / "data" / "cv_dataset.csv"
 load_dotenv(_BACKEND / ".env")
 
 # Point de reprise (None pour traiter entièrement)
-RESUME_FROM = "cv_0200"
+RESUME_FROM = "cv_0387"
 
 EXTRACTED.mkdir(parents=True, exist_ok=True)
 QUARANTINE.mkdir(parents=True, exist_ok=True)
@@ -59,10 +59,9 @@ for filename, cv_text in all_cvs.items():
                 "education_score":        score_education(education_data.get("degree"))
             })
 
-        cv_id = filename.split(".")[0]
         final_json = {
             "meta": {
-                "cv_id":        cv_id,
+                "cv_id":        filename,
                 "processed_at": datetime.now().strftime("%Y-%m-%d"),
             },
             "age":                     pre_processed_data.get("age"),
