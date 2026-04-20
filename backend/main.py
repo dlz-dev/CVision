@@ -10,19 +10,20 @@ from core.json2csv import json2csv
 from core.loader import load_cvs_from_folder
 from core.preprocessor import clean_cv_text_for_llm, compute_experience_metrics, pre_process_cv, score_education
 
-# Charge .env depuis la racine du projet (scripts/ → backend/ → racine/)
-load_dotenv(Path(__file__).parents[2] / ".env")
-
 _BASE = Path(__file__).parents[1]
+_BACKEND = _BASE / "backend"
 
-RAW_DATA   = _BASE / "data" / "raw"
-EXTRACTED  = _BASE / "data" / "extracted"
-QUARANTINE = _BASE / "data" / "quarantaine"
-LABELS     = _BASE / "data" / "student_labels.csv"
-OUTPUT_CSV = _BASE / "data" / "cv_dataset.csv"
+RAW_DATA   = _BACKEND / "data" / "raw"
+EXTRACTED  = _BACKEND / "data" / "extracted"
+QUARANTINE = _BACKEND / "data" / "quarantaine"
+LABELS     = _BACKEND / "data" / "student_labels.csv"
+OUTPUT_CSV = _BACKEND / "data" / "cv_dataset.csv"
+
+# Charge .env depuis le backend du projet (backend/ → .env)
+load_dotenv(_BACKEND / ".env")
 
 # Point de reprise (None pour traiter entièrement)
-RESUME_FROM = None
+RESUME_FROM = "cv_0200"
 
 EXTRACTED.mkdir(parents=True, exist_ok=True)
 QUARANTINE.mkdir(parents=True, exist_ok=True)
