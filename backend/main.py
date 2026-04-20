@@ -23,7 +23,7 @@ OUTPUT_CSV = _BACKEND / "data" / "cv_dataset.csv"
 load_dotenv(_BACKEND / ".env")
 
 # Point de reprise (None pour traiter entièrement)
-RESUME_FROM = "cv_0387"
+RESUME_FROM = "cv_0210"
 
 EXTRACTED.mkdir(parents=True, exist_ok=True)
 QUARANTINE.mkdir(parents=True, exist_ok=True)

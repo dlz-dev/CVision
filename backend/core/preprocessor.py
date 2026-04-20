@@ -125,12 +125,17 @@ def _geocode_with_fallback(address: str):
 
     # 4. Ville + Pays (Nettoyage des codes postaux)
     if len(parts) >= 2:
-        # Regex masquée par sub() direct (à remplacer par ton ancienne logique)
-        city_clean = None  # regex
+        # On cible l'avant-dernier élément (ex: "38274 Lisbon")
+        city_part = parts[-2]
+
+        # On supprime les chiffres (code postal) pour ne garder que la ville
+        city_clean = re.sub(r'\d+', '', city_part).strip()
+        # On supprime aussi les préfixes pays éventuels (ex: "PT-Lisbon")
+        city_clean = re.sub(r'^[A-Z]{1,2}-', '', city_clean).strip()
+
         if city_clean:
             time.sleep(1)
             return geolocator.geocode(f"{city_clean}, {parts[-1]}", timeout=10)
-
     return None
 
 

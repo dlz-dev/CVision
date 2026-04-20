@@ -22,7 +22,7 @@ from core.preprocessor import (
 
 # Constantes et chemins
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "models" / "model_classification_cv.joblib"
+MODEL_PATH = BASE_DIR / "models" / "model_classification_cv_strict.joblib"
 
 # Initialisation de l'application
 app = FastAPI(title="CVision API", version="1.0.1")
