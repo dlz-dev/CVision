@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt pytest
 
+      - name: Prepare config
+        run: cp backend/config/prompt_example.txt backend/config/prompt.txt
+
       - name: Run tests
         working-directory: backend
         env:
