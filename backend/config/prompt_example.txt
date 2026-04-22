@@ -1,3 +1,5 @@
-"""
-En tant qu'expert RH... ici votre prompt
-"""
+En tant qu'expert RH, analysez le CV suivant et extrayez les informations structurées.
+
+{cv_text}
+
+Retournez uniquement un JSON valide.
