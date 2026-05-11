@@ -1,7 +1,7 @@
 # Audit d'équité — Modèle de classification de CVs
 
 > **CVision** · Documentation des méthodes · B2 IA · HELMo
-> Notebook de référence : [`backend/notebooks/fairness_audit_modif.ipynb`](../notebooks/fairness_audit_modif.ipynb)
+> Notebook de référence : [`backend/notebooks/fairness_audit.ipynb`](../notebooks/fairness_audit.ipynb)
 
 ---
 
@@ -30,25 +30,17 @@ Le projet CVision développe un modèle qui trie automatiquement les CV pour dé
 
 La question centrale : **est-ce que le modèle traite tout le monde de façon équitable ?** En particulier, est-ce qu'à *qualification égale* les candidats sont traités identiquement quel que soit leur âge, leur origine présumée (langues, distance), ou leur école ?
 
-### Comment lire ce document
-
-| Lecteur | Sections à privilégier |
-|---|---|
-| RH / non-technique | §1, §3 (synthèse), §7, §11, §13 (réponses au cahier des charges) |
-| Évaluateur académique | toutes les sections — §2 et §6 détaillent la méthodologie |
-| Développeur reprenant l'audit | §3, §6, §10 (split anti-leakage) et le notebook référencé |
-
 ### Cadre éthique — *AI4People* (Floridi et al.)
 
-Les cinq principes pour une IA digne de confiance qui ont guidé chaque choix technique :
+> **Source de ce cadre :** la conférence sur l'éthique des systèmes algorithmiques, dont la synthèse est disponible dans [`ethique_synthese.md`](ethique_synthese.md), a présenté le projet *AI4People* de Luciano Floridi comme référence conceptuelle centrale. Les cinq principes définis dans ce cadre (§1 de la synthèse) ont directement orienté les choix techniques de cet audit. Le tableau ci-dessous les relie explicitement à chaque décision prise.
 
-| Principe | Question concrète | Traduction dans cet audit |
-|---|---|---|
-| **Bienfaisance** | L'IA fait-elle le bien ? | Modèle équitable proposé (Stratégie 1, §10) |
-| **Non-malfaisance** | L'IA évite-t-elle de nuire ? | Tests stats out-of-sample, IC bootstrap pour ne pas survendre les résultats |
-| **Autonomie** | L'humain garde-t-il le contrôle ? | Explication individuelle pour le recruteur (§12) |
-| **Justice & Équité** | Traite-t-elle tout le monde pareil ? | EOD (Equal Opportunity Difference) comme métrique principale (§5) |
-| **Explicabilité** | Peut-on comprendre ses décisions ? | Triple couche L1 + SHAP + log-odds (§9, §12) |
+| Principe (*AI4People*) | Question concrète | Pourquoi ce principe s'applique ici | Traduction technique dans cet audit |
+|---|---|---|---|
+| **Bienfaisance** | L'IA fait-elle le bien ? | Un outil de recrutement automatisé influence des trajectoires professionnelles réelles. Mal calibré, il peut systématiquement exclure des profils capables. | Modèle équitable proposé (Stratégie 1, §10) |
+| **Non-malfaisance** | L'IA évite-t-elle de nuire ? | Présenter des métriques calculées sur les données d'entraînement ou sur un seul ré-échantillon gonflerait artificiellement les résultats et donnerait à LuxTalent une fausse impression de sécurité. | Tests stats **out-of-sample uniquement**, IC bootstrap pour quantifier l'incertitude plutôt que la masquer |
+| **Autonomie** | L'humain garde-t-il le contrôle ? | L'AI Act (Art. 14) et le RGPD (Art. 22) exigent qu'un candidat refusé puisse obtenir une explication et contester. Un recruteur qui ne comprend pas la décision ne peut ni l'expliquer ni la corriger. | Explication individuelle lisible par le recruteur (§12) |
+| **Justice & Équité** | Traite-t-elle tout le monde pareil ? | La conférence a insisté sur le fait que l'équité doit être mesurée *à qualification égale*, pas sur des groupes aux niveaux de compétence différents — d'où le rejet de la DP brute au profit de l'EOD. | EOD (Equal Opportunity Difference) comme métrique principale (§5) |
+| **Explicabilité** | Peut-on comprendre ses décisions ? | Sans explicabilité, l'effet "boîte noire" s'installe (cf. [`ethique_synthese.md`](ethique_synthese.md) §1). Le recruteur ne peut pas détecter une erreur ni justifier un refus. | Triple couche L1 + SHAP + log-odds (§9, §12) |
 
 ### Cadre légal — pourquoi cet audit est une obligation
 
@@ -62,8 +54,6 @@ L'**Annexe III de l'AI Act** classe les outils automatisés de présélection de
 | **Art. 14** | Supervision humaine effective (le RH garde la main) | §12 (explication individuelle) |
 | **Art. 15** | Exactitude et robustesse | §6 (bootstrap), §11 (perf avant/après) |
 
-Sanctions en cas de non-conformité : jusqu'à **35 M€ ou 7% du chiffre d'affaires mondial**.
-
 > Autres références juridiques : Directive 2000/43/CE (origine ethnique), Directive 2000/78/CE (âge), RGPD Art. 9 (données sensibles) et Art. 22 (décisions automatisées), Loi belge du 10/05/2007 contre la discrimination.
 
 ---
@@ -72,41 +62,27 @@ Sanctions en cas de non-conformité : jusqu'à **35 M€ ou 7% du chiffre d'affa
 
 L'audit suit **8 étapes** explicites, chacune justifiée méthodologiquement et tracée dans le notebook.
 
-```
-1. Reproduction exacte du split train/test du modèle original
-   → métriques out-of-sample uniquement
-
-2. Définition des attributs sensibles + bucketisation en groupes protégés
-   → conformité Directive 2000/78, Loi belge 2007, RGPD Art. 9
-
-3. Calcul des métriques d'équité par groupe
-   → Selection rate · DP Gap · DI Ratio · TPR/FPR · EOD Gap
-
-4. Validation statistique de chaque écart
-   → Fisher exact (2x2) ou Chi² Pearson (3x2), seuil α=0.05
-   → IC bootstrap 95% sur l'EOD (n=1000 ré-échantillonnages)
-
-5. Analyse intersectionnelle
-   → heatmaps Âge × Francophonie / Âge × Géographie
-
-6. Disparités opérationnelles (rôle visé)
-   → distinguer ce qui est légitime (poste) de ce qui est suspect
-
-7. Explicabilité du modèle
-   → coefficients L1 (modèle d'origine) + SHAP (modèle FAIR)
-
-8. Stratégie corrective + comparaison avant/après
-   → suppression features sensibles, split anti-leakage 60/20/20
-   → trade-off équité/performance documenté
-```
+| Étape | Ce qui est fait | Pourquoi c'est nécessaire |
+|---|---|---|
+| **1.** Reproduction exacte du split train/test original | Recalcul de `train_test_split(test_size=0.2, random_state=42)` | Seules les métriques out-of-sample sont fiables. Évaluer sur le train gonfle les TPR et masque les biais — c'est la règle de non-malfaisance (§1 ci-dessus). |
+| **2.** Définition des attributs sensibles et bucketisation | Groupes protégés définis avant tout calcul | Si les groupes sont définis *après* avoir vu les écarts, on risque de cherry-picker les découpages favorables. Ils sont fixés a priori, conformément aux directives légales. |
+| **3.** Calcul des métriques d'équité par groupe | Selection rate · DP Gap · DI · TPR/FPR · EOD | Aucune métrique seule n'est suffisante. Leur combinaison révèle des biais que chacune prise isolément manquerait. |
+| **4.** Validation statistique de chaque écart | Fisher exact (2×2), Chi² (3×2), IC bootstrap 95% | Un écart visible sur un graphique peut être dû au hasard avec n=100. On ne tire de conclusions que sur des écarts statistiquement significatifs. |
+| **5.** Analyse intersectionnelle | Heatmaps Âge × Francophonie, Âge × Géographie | La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — *Focus biais et intersectionnalité*) a insisté : un modèle peut être équitable sur chaque attribut isolé et discriminer sur leur combinaison. |
+| **6.** Disparités opérationnelles | Analyse par `target_role` | Répondre à la question 3 du cahier des charges : les écarts sont-ils liés au poste (légitimes) ou à des attributs protégés (suspects) ? |
+| **7.** Explicabilité | Coefficients L1 + SHAP + log-odds individuels | Obligation légale (Art. 13 et 14 AI Act) et principe d'Autonomie : le recruteur doit pouvoir comprendre et contester chaque décision. |
+| **8.** Stratégie corrective + comparaison avant/après | Suppression features, split anti-leakage 60/20/20, seuil F-beta sur validation | Corriger sans créer de leakage. Documenter le coût en performance pour que LuxTalent prenne une décision éclairée sur le trade-off équité/performance. |
 
 ### Trois règles d'or appliquées dans tout l'audit
 
-1. **Out-of-sample uniquement.** Toutes les métriques d'équité sont calculées sur le test set (100 candidats) — jamais sur le train. Évaluer un modèle sur ses données d'entraînement gonfle artificiellement les TPR et FPR, et masque les biais.
+**1. Out-of-sample uniquement.**
+Toutes les métriques d'équité sont calculées sur le test set (100 candidats) — jamais sur le train. *Pourquoi :* évaluer un modèle sur ses données d'entraînement gonfle artificiellement les TPR et FPR, et masque les biais. C'est la règle de **Non-malfaisance** en pratique : ne pas présenter des chiffres flatteurs qui donneraient à LuxTalent une fausse impression de sécurité.
 
-2. **Pas de data leakage.** Le seuil de décision du modèle FAIR est calibré sur un **set de validation séparé** (100 candidats), pas sur le test. Le test set n'est touché qu'une seule fois pour le rapport final.
+**2. Pas de data leakage.**
+Le seuil de décision du modèle FAIR est calibré sur un **set de validation séparé** (100 candidats), pas sur le test. Le test set n'est touché qu'une seule fois pour le rapport final. *Pourquoi :* si on optimise le seuil sur le test set, les métriques finales sont biaisées à la hausse — on aurait "appris" le test set sans le dire. C'est une forme de fraude méthodologique classique dans les projets IA appliqués.
 
-3. **Honnêteté sur l'incertitude.** Avec seulement 20 candidats positifs au test, certaines métriques (TPR Junior calculé sur 2 personnes) sont très bruitées. On le quantifie via un IC bootstrap au lieu de présenter des chiffres ponctuels comme s'ils étaient stables.
+**3. Honnêteté sur l'incertitude.**
+Avec seulement 20 candidats positifs au test, certaines métriques (TPR Junior calculé sur 2 personnes) sont très bruitées. On le quantifie via un IC bootstrap au lieu de présenter des chiffres ponctuels comme s'ils étaient stables. *Pourquoi :* la conférence a rappelé que la **Non-malfaisance** inclut la *capability caution* — ne pas laisser croire que l'IA est plus certaine qu'elle ne l'est réellement. Un EOD point à 1.00 avec un IC [0.6, 1.0] ne raconte pas la même histoire qu'un EOD à 1.00 avec un IC [0.95, 1.0].
 
 ---
 
@@ -155,16 +131,18 @@ Avant tout calcul, on définit les **groupes protégés** — les caractéristiq
 
 > ⚠ `education_degree` et `education_score` sont **parfaitement corrélés** (291/209 dans les deux cas). Les métriques sont donc identiques — on les conserve pour la traçabilité mais ce sont effectivement **4 attributs distincts**, pas 5.
 
-### Pourquoi ces choix — la logique du proxy
+### Pourquoi ces attributs — la logique du proxy
 
 Le dataset ne contient **pas** les attributs sensibles "purs" (genre, nationalité, origine ethnique). Mais l'AI Act et le RGPD considèrent qu'**une feature qui révèle indirectement un attribut protégé est elle-même sensible** — c'est le principe du *proxy*.
 
-| Feature suspecte | Proxy de quoi ? | Pourquoi c'est un proxy |
-|---|---|---|
-| `lang_de`, `lang_es`, `lang_it` | Nationalité / origine | Parler allemand corrèle avec être allemand. Pénaliser/favoriser ces langues = discriminer indirectement par nationalité. |
-| `distance_ville_haute_km` | Origine géographique | Distance à Liège élevée ⇒ candidat non européen probablement. |
-| `lang_fr` | Origine francophone | Mais c'est *aussi* une compétence métier légitime en Belgique. Cas ambigu, traité en §10. |
-| `education_score` | Statut socio-économique | École de prestige corrèle avec milieu social aisé. Mais c'est aussi une mesure de qualité défendable. |
+La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — *Focus sur l'Équité, les Biais et la Non-discrimination*) a insisté sur le fait que les discriminations algorithmiques transitent souvent par des données apparemment neutres. Cela justifie l'examen des features suivantes :
+
+| Feature suspecte | Proxy de quoi ? | Pourquoi c'est un proxy | Justification de l'inclusion dans l'audit |
+|---|---|---|---|
+| `lang_de`, `lang_es`, `lang_it` | Nationalité / origine | Parler allemand corrèle avec être allemand. Favoriser ces langues = discriminer indirectement par nationalité. | Directive 2000/43/CE — discrimination sur l'origine nationale |
+| `distance_ville_haute_km` | Origine géographique | Distance à Liège élevée ⇒ candidat non européen probablement. | RGPD Art. 9 — données révélant indirectement l'origine |
+| `lang_fr` | Origine francophone | Parler français corrèle avec une origine belge ou française. | Cas **ambigu** : aussi une compétence métier légitime en Belgique (cf. §10 pour la décision retenue) |
+| `education_score` | Statut socio-économique | École de prestige corrèle avec milieu social aisé. | AI Act Art. 10 — biais dans les données d'entraînement |
 
 ### `target_role` volontairement exclu
 
@@ -208,6 +186,8 @@ Vue individuelle : *parmi les candidats **vraiment** qualifiés (`Y=1`), le mod�
 
 ### Pourquoi l'EOD prime ici — arbre de décision
 
+La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — principe de **Justice & Équité**) a rappelé que l'équité doit s'évaluer *à qualification égale*. Cela rend la DP brute inadaptée dès lors que les groupes ont des niveaux de qualification différents en réalité. L'arbre suivant formalise ce raisonnement :
+
 ```
 1. Les base rates de qualification diffèrent-ils entre groupes ?
    → Oui (cf. tableau ci-dessous) → EOD obligatoire, DP/DI complémentaires
@@ -229,6 +209,8 @@ Vue individuelle : *parmi les candidats **vraiment** qualifiés (`Y=1`), le mod�
 | Master+ | 30.1% |
 
 Les écarts de base rate sont **importants** (Senior 3× plus qualifié que Junior). La DP brute condamnerait à tort le modèle pour avoir simplement reflété cette réalité. L'**EOD est la seule métrique qui isole le biais du modèle des qualifications réelles** — c'est notre métrique principale, les autres servent de complément descriptif.
+
+> **Limite du DI** : le Disparate Impact Ratio est un rapport min/max de taux de sélection. Avec de petits effectifs (2 Juniors qualifiés au test), le dénominateur peut fluctuer beaucoup d'un ré-échantillonnage à l'autre. Cela explique pourquoi le DI min semble se dégrader dans le modèle FAIR (§11) même quand l'EOD s'améliore : c'est un artefact de variance d'échantillonnage, pas un vrai recul de l'équité. L'EOD est plus robuste sur petit n car il conditionne sur les positifs réels, un sous-ensemble plus stable.
 
 ---
 
@@ -273,6 +255,35 @@ Interprétation :
 
 C'est une honnêteté méthodologique importante : un EOD point à 1.00 avec un IC [0.6, 1.0] ne raconte pas la même histoire qu'un EOD à 1.00 avec un IC [0.95, 1.0]. Dans notre cas, les IC sont effectivement larges et confirment la nécessité d'un dataset plus grand pour un audit définitif.
 
+### Calibration par groupe — la 3ᵉ jambe du fairness
+
+La littérature fairness (Hardt et al. 2016 ; Pleiss et al. 2017) reconnaît **trois critères d'équité non simultanément satisfaisables** quand les base rates diffèrent :
+
+1. **Demographic Parity** — taux de sélection égaux entre groupes (DP).
+2. **Equal Opportunity** — TPR égaux à qualification égale (EOD).
+3. **Calibration** — quand le modèle dit P=x dans deux groupes, la fraction réellement qualifiée est ≈ x dans les deux cas.
+
+DP et EO ont été couverts par les métriques §5 et les tests §6.1–6.2. La calibration mesure une chose différente : **la fiabilité numérique des probabilités prédites entre groupes**.
+
+**Pourquoi c'est important pour le recruteur** : si un Junior à P=0.5 est qualifié dans 20% des cas mais qu'un Senior à P=0.5 est qualifié dans 50% des cas, alors un même score de 0.5 ne *veut pas dire la même chose* selon le groupe. Le recruteur qui compare deux candidats à proba égale ferait un choix biaisé sans le savoir. C'est le type de biais que DP et EO ne détectent pas.
+
+**Méthode appliquée** (volontairement simple) :
+
+```
+Pour chaque groupe g :
+    mean_proba(g) = moyenne des probabilités prédites
+    base_rate(g)  = moyenne des étiquettes réelles
+    calibration_gap(g) = | mean_proba(g) − base_rate(g) |
+
+Seuil d'alerte : gap > 0.10
+```
+
+Un gap > 0.10 signale une **sur- ou sous-confiance systématique** du modèle pour ce groupe.
+
+**Lien légal** : AI Act Art. 15 — *« Les systèmes IA à haut risque sont conçus de manière à atteindre […] un niveau d'exactitude approprié »*. La calibration est une mesure directe de cette exactitude conditionnelle au groupe.
+
+> Approche plus poussée (hors-scope ici) : calculer l'**Expected Calibration Error** (ECE) par groupe en découpant les probabilités en 10 bins. Notre méthode "moyenne globale par groupe" suffit pour détecter une décalibration grossière et reste lisible pour un RH.
+
 ---
 
 ## Analyse par attribut & intersectionnalité
@@ -296,7 +307,7 @@ C'est une honnêteté méthodologique importante : un EOD point à 1.00 avec un 
 - Chi² DP : p = 0.53 → non significatif.
 - Coefficient L1 *positif* (+0.04) : le modèle favorise même les candidats lointains.
 
-→ La feature est **retirée par principe RGPD** (minimisation des données, risque de proxy d'origine), **pas pour corriger un biais avéré**. C'est de la prévention.
+→ La feature est **retirée par principe RGPD** (minimisation des données, risque de proxy d'origine), **pas pour corriger un biais avéré**. C'est de la prévention. La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — *Non-malfaisance*) a rappelé qu'une donnée qui *pourrait* révéler une origine ethnique ou nationale entre dans le champ du RGPD Art. 9 même si son coefficient est faible aujourd'hui — il peut croître avec plus de données.
 
 ### Francophonie — base rates quasi identiques, marginalement détectable
 
@@ -312,7 +323,7 @@ C'est une honnêteté méthodologique importante : un EOD point à 1.00 avec un 
 
 ### Intersectionnalité — un point clé de la conférence
 
-La conférence a insisté : les discriminations sont souvent **croisées**. Un modèle peut être OK sur chaque attribut pris seul et discriminer sur leur combinaison.
+La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — *Focus sur l'Équité, les Biais et la Non-discrimination* : *« une vigilance particulière doit être portée sur l'intersectionnalité, car l'IA peut prendre des décisions basées sur une combinaison de caractéristiques protégées »*) a insisté : les discriminations sont souvent **croisées**. Un modèle peut être OK sur chaque attribut pris seul et discriminer sur leur combinaison.
 
 On teste deux croisements pertinents :
 
@@ -337,7 +348,7 @@ Sur notre test set, les rôles les plus sélectionnés sont Product Analyst, ML 
 
 ## Explicabilité du modèle
 
-L'AI Act (Art. 13) et le RGPD (Art. 22) exigent que les décisions automatisées soient explicables. On combine **trois couches** complémentaires.
+L'AI Act (Art. 13) et le RGPD (Art. 22) exigent que les décisions automatisées soient explicables. Le principe d'**Explicabilité** de la conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1) ajoute une dimension humaine à cette obligation légale : éviter l'effet "boîte noire" où ni le candidat ni le recruteur ne comprennent pourquoi une décision a été prise. On combine **trois couches** complémentaires pour répondre à ces deux exigences.
 
 ### Couche 1 — Coefficients L1 (modèle d'origine)
 
@@ -355,11 +366,13 @@ La régression logistique L1 met automatiquement à zéro les features non infor
 | `distance_ville_haute_km` | +0.0396 | ⚠ Favorise les candidats lointains |
 | `lang_it` | −0.0073 | ⚠ Pénalise les italophones |
 
-Les coefficients marqués ⚠ sont des **proxies d'origine** — c'est sur cette base qu'ils ont été retirés du modèle FAIR (§10).
+Les coefficients marqués ⚠ sont des **proxies d'origine** — c'est sur cette base qu'ils ont été retirés du modèle FAIR (§10). *Pourquoi cette couche est utile :* les coefficients L1 donnent une image globale et parcimonieuse du modèle. Ils permettent de comprendre en un regard quelles features pilotent réellement les décisions, sans noyer le RH dans 128 variables.
 
 ### Couche 2 — SHAP (sur le modèle FAIR)
 
 Les coefficients donnent l'impact *marginal* d'une feature. Les valeurs **SHAP** (SHapley Additive Explanations) donnent l'impact *réel* sur chaque prédiction, en tenant compte des interactions et de la distribution des données. On l'applique au modèle FAIR (celui qui sera déployé) sur 300 candidats.
+
+*Pourquoi SHAP sur le modèle FAIR et non l'ancien :* le diagnostic des biais de l'ancien modèle a déjà été conduit via L1 (§8) et les corrélations âge/proba (§7). Ce qui importe pour le déploiement, c'est de comprendre le modèle FAIR — celui que LuxTalent va utiliser. SHAP valide que les features retirées n'ont pas été remplacées par des proxies inattendus.
 
 **Résultats principaux (modèle FAIR)** :
 
@@ -373,9 +386,11 @@ Visualisations produites par le notebook :
 - **Beeswarm** : importance globale + direction pour toutes les features.
 - **Waterfall** : décomposition individuelle pour un candidat précis.
 
+> ⚠ Le fait que `lang_fr` soit devenue la 2ᵉ feature la plus influente du modèle FAIR (|SHAP| = 0.24) est un signal à surveiller. En retirant les autres langues, le modèle a reporté du poids sur `lang_fr` — qui peut elle-même être un proxy d'origine francophone. Ce point est développé en §11.
+
 ### Couche 3 — Log-odds individuels (pour le recruteur)
 
-Voir §12. C'est l'explication la plus opérationnelle : pour chaque décision, on liste les 5–10 features qui ont le plus pesé, avec leur contribution chiffrée. Conforme à l'**Art. 14 AI Act** (supervision humaine) et au **RGPD Art. 22** (droit à l'explication).
+Voir §12. C'est l'explication la plus opérationnelle : pour chaque décision, on liste les 5–10 features qui ont le plus pesé, avec leur contribution chiffrée. Conforme à l'**Art. 14 AI Act** (supervision humaine) et au **RGPD Art. 22** (droit à l'explication). *Pourquoi cette couche :* SHAP est puissant mais difficile à lire sans formation. Le log-odds individuel traduit la décision en langage naturel, accessible à un RH sans compétence en ML.
 
 ---
 
@@ -383,7 +398,10 @@ Voir §12. C'est l'explication la plus opérationnelle : pour chaque décision, 
 
 ### Stratégie 1 — Suppression des features sensibles (pre-processing) — RETENUE
 
-Approche la plus simple éthiquement et juridiquement : si une feature pose problème, on la retire avant d'entraîner. Le nouveau modèle apprend sans avoir accès à ces signaux.
+**Principe :** si une feature pose problème, on la retire avant d'entraîner. Le nouveau modèle apprend sans avoir accès à ces signaux.
+
+**Pourquoi cette approche plutôt qu'une autre :**
+La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — principe de **Bienfaisance** et §2 — AI Act Art. 10) a souligné que le cadre européen privilégie la correction *en amont* des données plutôt qu'une manipulation *a posteriori* des prédictions. La suppression de features est la stratégie de pré-processing la plus défendable juridiquement car elle ne distingue jamais les candidats sur la base d'un attribut protégé au moment de la décision. C'est aussi la plus transparente : on peut expliquer à LuxTalent exactement quelles informations le modèle n'utilise plus et pourquoi.
 
 **Features supprimées** (6) :
 ```
@@ -391,10 +409,13 @@ age · distance_ville_haute_km · lang_de · lang_es · lang_it · lang_other_sc
 ```
 
 **Features conservées** :
-- `lang_fr` : compétence professionnelle légitime en contexte belgo-européen.
-- `lang_en` : lingua franca technique.
+- `lang_fr` : compétence professionnelle légitime dans le contexte belgo-luxembourgeois (LuxTalent opère dans un environnement bilingue FR/EN ; la maîtrise du français est un critère métier défendable).
+- `lang_en` : lingua franca technique — neutre par construction (|SHAP| ≈ 0 dans le modèle FAIR).
 
-Ces deux exceptions sont **défendables au sens RGPD** (finalité légitime, proportionnée), mais l'effet de bord est à surveiller (§11).
+**Pourquoi conserver `lang_fr` malgré le risque de proxy :**
+C'est la décision la plus délicate de l'audit. La francophonie corrèle avec une origine luxembourgeoise, belge, française ou suisse. Supprimer `lang_fr` réduirait ce risque mais pénaliserait un critère métier réel pour un cabinet de recrutement au Luxembourg où de nombreux postes exigent une communication en français.
+
+Le RGPD (Art. 5 — principe de **finalité**) autorise l'utilisation d'une donnée sensible si elle est proportionnée à la finalité poursuivie et si aucune alternative moins intrusive n'existe. Ici, `lang_fr` est proportionnée (un poste au Luxembourg peut légitimement exiger le français) et aucune donnée équivalente moins sensible n'est disponible dans le dataset. La décision est cependant **provisoire** : l'aggravation de l'EOD francophonie après correction (0.13 → 0.47, cf. §11) justifie de remettre ce choix en question lors du prochain audit.
 
 **Méthodologie anti-data-leakage** — le point méthodologique le plus important de la refonte :
 
@@ -407,6 +428,29 @@ Dataset 500 candidats
 ```
 
 Le seuil de décision est optimisé sur la validation par F-beta (β=0.5, privilégie la précision). Le test set n'est touché qu'une seule fois en toute fin pour produire les chiffres du §11.
+
+### Justification du choix du seuil — une décision éthique, pas technique
+
+Le choix de β=0.5 dans la F-beta n'est pas neutre. Le principe d'**Autonomie** de la conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1) rappelle que l'humain doit garder le contrôle — y compris sur les paramètres qui définissent la politique de sélection. Ce choix doit donc être **validé avec LuxTalent**, pas décidé unilatéralement par l'équipe technique.
+
+| β | Optimise | Conséquence pour le candidat | Conséquence pour LuxTalent |
+|---|---|---|---|
+| β = 0.5 (notre choix) | Précision > rappel | Moins de faux positifs : un candidat "sélectionné" l'est probablement vraiment | Moins d'entretiens à organiser, mais on rate plus de vrais talents |
+| β = 1.0 (équilibré) | F1 équilibré | Standard | Compromis |
+| β = 2.0 | Rappel > précision | Plus de chances d'être invité même si la conviction du modèle est faible | Plus d'entretiens, mais moins de vrais talents ratés |
+
+Nous avons retenu **β=0.5** pour deux raisons :
+
+1. **Précaution éthique côté faux positif** : un candidat à qui on dit "sélectionné" puis qu'on rejette à l'entretien est une mauvaise expérience humaine et juridique. Mieux vaut être prudent dans le « oui ».
+2. **Coût opérationnel** : un faux positif coûte un entretien (RH mobilisé, candidat dérangé) ; un faux négatif coûte un talent raté. Pour LuxTalent en haut volume, le coût d'un entretien est plus tangible — donc privilégier précision.
+
+> Ce choix est **contestable** et **doit l'être** : un client qui privilégierait l'inclusion (rappel maximum) demanderait β=2. La fonction `precision_recall_curve` étant déjà calculée, un changement de β ne demande pas de ré-entraînement, seulement un recalibrage du seuil. C'est une décision *à valider avec le donneur d'ordre*, pas un choix technique anodin.
+
+Seuils obtenus :
+- **Ancien modèle** : 0.1434 (très bas — privilégie le rappel) ← héritage du notebook de classification
+- **Nouveau modèle FAIR** : 0.6352 (modéré — privilégie la précision)
+
+L'écart vient en partie du fait que le nouveau modèle, ayant moins de features, produit des probabilités plus polarisées (moins de candidats en zone grise).
 
 **Résultats du modèle FAIR sur le test set** :
 ```
@@ -449,7 +493,7 @@ Comparaison sur le **même test set** (rigueur méthodologique).
 | Précision (sélectionné) | 0.41 | 0.41 |
 | Rappel (refusé) | 0.75 | **0.80** |
 
-Perte de **~2 points de ROC-AUC** et 15 points de rappel sur la classe positive. C'est le **trade-off équité/performance assumé**.
+Perte de **~2 points de ROC-AUC** et 15 points de rappel sur la classe positive. C'est le **trade-off équité/performance assumé**. La conférence (cf. [`ethique_synthese.md`](ethique_synthese.md) §1 — principe de **Bienfaisance**) pose explicitement cette question : un outil qui "fait le bien" pour une entreprise (performances prédictives maximales) ne fait pas nécessairement le bien pour les candidats si ses performances sont inégalement distribuées entre groupes.
 
 ### Équité — vue d'ensemble
 
@@ -460,13 +504,34 @@ Perte de **~2 points de ROC-AUC** et 15 points de rappel sur la classe positive.
 | Niveau éducation | 0.55 | 0.62 | +0.07 ⚠ | 0.17 | 0.12 |
 | Distance géographique | 0.23 | 0.20 | −0.03 | 0.72 | 0.58 |
 
-### Effets de bord à signaler honnêtement
+### Effets de bord — analyse honnête
 
-**1. EOD francophonie qui s'aggrave (0.13 → 0.47).** Quand on retire `lang_de`, `lang_es`, `lang_it` et `lang_other_score_sum`, le modèle reporte mécaniquement du poids sur la seule langue restante : `lang_fr`. Le SHAP du modèle FAIR confirme : |SHAP| `lang_fr` ≈ 0.24, deuxième feature la plus influente. La conservation de `lang_fr` reste défendable (compétence métier en Belgique), mais c'est un point à monitorer.
+**1. EOD francophonie qui s'aggrave (0.13 → 0.47) — le principal risque résiduel.**
 
-**2. DI min qui se dégrade sur tous les attributs.** Le DI est très sensible aux petits échantillons quand un groupe a peu de positifs (Junior : 2 qualifiés). C'est précisément pour cette raison que l'**EOD prime sur le DI** dans cet audit — le DI brut est mathématiquement trompeur ici.
+C'est l'effet de bord le plus préoccupant de la correction. Quand on retire `lang_de`, `lang_es`, `lang_it` et `lang_other_score_sum`, le modèle perd des signaux prédictifs et reporte mécaniquement du poids sur les features restantes. Le SHAP du modèle FAIR confirme : `lang_fr` est devenue la 2ᵉ feature la plus influente (|SHAP| ≈ 0.24).
 
-**3. EOD éducation qui augmente légèrement.** +0.07, dans la marge de variance d'échantillonnage (l'IC bootstrap est large à n=20 positifs).
+Ce que cela signifie concrètement : un candidat non francophone qualifié est maintenant *moins bien détecté* que dans l'ancien modèle, alors que l'ancien modèle ne l'était déjà qu'à 87% de la fréquence d'un candidat francophone. Autrement dit, **on a corrigé le biais sur l'âge au prix d'une aggravation du biais sur l'origine francophone**.
+
+Ce résultat n'invalide pas la correction — l'EOD âge était à 1.00 (maximum absolu, inacceptable légalement) tandis que l'EOD francophonie passe de 0.13 à 0.47 (préoccupant, mais dans une plage où le Chi² n'est pas significatif sur ce dataset). Cependant, ce point doit être **communiqué sans ambiguïté à LuxTalent** : la version 2 du modèle n'est pas une version entièrement équitable — c'est une version moins discriminatoire sur le critère le plus urgent (l'âge), avec un risque accru sur un autre critère à surveiller.
+
+*Quelle serait la prochaine étape :* tester une version où `lang_fr` est également retirée, mesurer l'impact sur les performances et l'EOD francophonie, et soumettre le choix à LuxTalent avec le tableau des trade-offs. Si la maîtrise du français est vérifiée en entretien de toute façon, retirer `lang_fr` du scoring automatique peut être pertinent.
+
+**2. DI min qui se dégrade sur tous les attributs.**
+
+```
+DI min Âge      : 0.181 → 0.111  (−38%)
+DI min Distance : 0.715 → 0.578  (−19%)
+DI min Francopho: 0.473 → 0.284  (−40%)
+DI min Éducation: 0.173 → 0.116  (−33%)
+```
+
+Cette dégradation générale semble alarmante mais s'explique par la nature mathématique du DI : c'est un rapport `min_rate / max_rate`. Avec de petits effectifs (2 Juniors qualifiés au test), un léger changement du taux de sélection du groupe le plus faible fait varier le DI disproportionnellement. Le modèle FAIR ayant un seuil plus élevé (0.635 vs 0.143), il sélectionne moins au total, ce qui comprime les taux des petits groupes.
+
+C'est précisément pour cela que l'**EOD prime sur le DI** dans cet audit : l'EOD conditionne sur les vrais positifs et est plus robuste aux effets de seuil. Le DI brut, sans correction des base rates, mesure partiellement les différences de qualification réelle plutôt que le biais du modèle. Il reste utile comme indicateur légal (règle des 80%) mais ne doit pas être interprété isolément.
+
+**3. EOD éducation qui augmente légèrement (+0.07).**
+
+Dans la marge de variance d'échantillonnage (l'IC bootstrap est large à n=20 positifs). Le biais éducation n'est pas adressé par la stratégie 1 car `education_score` et `education_degree` sont conservés comme features légitimes (compétences réelles, pas proxies). C'est un compromis assumé : traiter ce biais demanderait soit de retirer le niveau d'éducation du modèle (ce qui dégraderait fortement les performances), soit de s'attaquer au déséquilibre des qualifications réelles dans le dataset (hors scope de l'audit).
 
 > Dans un contexte AI Act haut risque, **l'EOD sur l'attribut le plus discriminé (l'âge) prime** sur les autres métriques. Le report partiel du poids sur `lang_fr` justifierait un second tour d'audit dès qu'un dataset plus large sera disponible.
 
@@ -511,6 +576,7 @@ Le recruteur peut ainsi :
 | Indicateur | Ancien | Nouveau | Δ |
 |---|---|---|---|
 | **EOD Âge** (métrique clé) | 1.00 | 0.67 | **−0.33** ✅ |
+| EOD Francophonie | 0.13 | 0.47 | **+0.34** ⚠ |
 | ROC-AUC | 0.706 | 0.687 | −0.019 |
 | Recall sélectionné | 0.70 | 0.55 | −0.15 |
 
@@ -525,10 +591,10 @@ Le recruteur peut ainsi :
 
 ### Réponses au cahier des charges WP2
 
-1. *Le système traite-t-il les candidats comparables de manière égale ?* — **Non, pour l'âge** sur l'ancien modèle (EOD = 1.00). Corrigé partiellement sur le nouveau (0.67).
+1. *Le système traite-t-il les candidats comparables de manière égale ?* — **Non, pour l'âge** sur l'ancien modèle (EOD = 1.00). Corrigé partiellement sur le nouveau (0.67). La francophonie, elle, s'est aggravée.
 2. *Y a-t-il des disparités mesurables ?* — Oui sur âge et éducation (Chi² significatif). Non sur distance ni francophonie marginale (avant correction).
 3. *Sont-elles justifiées par le poste ?* — Partiellement pour l'éducation (Master+ plus qualifié) et les rôles techniques (cf. §8). L'écart de TPR par âge n'est *pas* justifié — c'est un vrai biais.
-4. *Le modèle peut-il être amélioré ?* — Oui : EOD Âge réduit de 33 points avec le modèle FAIR, au prix de 2 points de ROC-AUC.
+4. *Le modèle peut-il être amélioré ?* — Oui : EOD Âge réduit de 33 points avec le modèle FAIR, au prix de 2 points de ROC-AUC. Un second tour d'audit sur `lang_fr` est recommandé.
 5. *Les décisions peuvent-elles être rendues plus transparentes ?* — Oui, via SHAP global + log-odds individuel (§9, §12), conforme aux Art. 13 et 14 AI Act.
 
 ### Limites assumées
@@ -537,6 +603,9 @@ Le recruteur peut ainsi :
 - **Attributs sensibles "vrais"** (genre, nationalité, origine ethnique) **absents du dataset** — l'audit travaille sur des proxies.
 - **Chi² 3×2 avec cellules <5** : l'idéal serait Fisher-Freeman-Halton, non disponible dans scipy. Résultat (p=0.026) reste indicatif.
 - **L'amélioration EOD Âge pourrait être en partie due à la variance d'échantillonnage** — à confirmer avec un dataset plus large.
+- **Le modèle FAIR n'est pas un modèle entièrement équitable** — il réduit le biais sur l'âge mais aggrave l'EOD francophonie. C'est un premier cycle de correction, pas un état final.
+
+>Je le répète : nous avons dû faire un compromis entre l’âge et la maîtrise du français. Dans le cadre de cet audit, il nous semble cohérent qu’une entreprise luxembourgeoise considère la connaissance de la langue administrative du pays comme un critère pertinent.
 
 ### Recommandations pour LuxTalent
 
@@ -545,17 +614,23 @@ Le recruteur peut ainsi :
 3. **Boucle de feedback humain** pour les cas limites (proba ∈ [seuil ± 5%]).
 4. **Collecter des données démographiques anonymisées** pour mesurer les vrais attributs protégés (avec consentement explicite).
 5. **Former les recruteurs** aux biais algorithmiques et à la lecture des explications individuelles.
-6. **Surveiller `lang_fr`** lors du prochain audit — c'est la feature qui a hérité du poids des langues retirées.
+6. **Valider le paramètre β** avec la direction : le choix de β=0.5 est défendable mais contestable — un client orienté inclusion demanderait β=2.
 
 ### Apports de la conférence intégrés à cet audit
 
-1. **Justice & Équité** → choix de l'EOD (vue individuelle) plutôt que DP seule (vue collective sans contrôle des base rates).
-2. **Intersectionnalité** → analyses croisées Âge × Francophonie et Âge × Géographie.
-3. **Explicabilité** → triple couche L1 + SHAP + log-odds individuel (Art. 13 et 14 AI Act).
-4. **Non-malfaisance / capability caution** → `age`, distance et langues exotiques retirées par principe de **minimisation des données** (RGPD Art. 5), même quand le test statistique seul ne les condamnerait pas.
-5. **Durabilité / IA frugale** → régression logistique L1 préférée à un modèle deep (~64 KB sauvegardé, pas de GPU, entraînement local en quelques secondes), à la fois éthique (intrinsèquement explicable) et environnementale (compute minimal).
+La synthèse de la conférence est disponible dans [`ethique_synthese.md`](ethique_synthese.md). Les cinq principes *AI4People* définis en §1 ont guidé les choix techniques suivants :
 
-**Un modèle performant n'est pas forcément un modèle équitable.** Nous avons choisi de sacrifier un peu de ROC-AUC pour avoir un système qui ne discrimine plus l'âge — choix légitime dans un contexte de recrutement automatisé classé haut risque par l'AI Act.
+| Principe (cf. [`ethique_synthese.md`](ethique_synthese.md) §1) | Choix technique dans l'audit | Pourquoi ce lien |
+|---|---|---|
+| **Justice & Équité** | EOD plutôt que DP seule comme métrique principale | La DP brute ignorerait les différences réelles de qualification entre groupes — "équité" ne signifie pas "taux égaux" mais "chances égales à mérite égal" |
+| **Intersectionnalité** (focus biais) | Analyses croisées Âge × Francophonie et Âge × Géographie | Un modèle peut discriminer via la combinaison de deux attributs même s'il paraît équitable sur chacun isolément |
+| **Explicabilité** (anti black-box) | Triple couche L1 + SHAP + log-odds individuel | Sans explicabilité, le recruteur ne peut ni comprendre ni contester une décision — Art. 13 et 14 AI Act |
+| **Non-malfaisance** (*capability caution*) | IC bootstrap sur l'EOD, évaluation out-of-sample uniquement | Ne pas présenter des chiffres qui semblent certains quand le dataset est trop petit pour l'être |
+| **Bienfaisance** | Suppression des features sensibles en pré-processing | La correction doit agir sur les données d'entraînement, pas contourner le problème par des ajustements a posteriori |
+| **Durabilité / IA frugale** (§3 de la synthèse) | Régression logistique L1 préférée à un modèle deep | ~64 KB sauvegardé, pas de GPU requis, entraînement local en secondes — intrinsèquement explicable et à empreinte minimale |
+| **Hauts risques AI Act** (§2 de la synthèse) | Ensemble du document | Notre outil entre dans l'Annexe III — toutes les obligations documentaires, de gouvernance et de supervision humaine s'appliquent |
+
+**Un modèle performant n'est pas forcément un modèle équitable.** Nous avons choisi de sacrifier un peu de ROC-AUC pour avoir un système qui ne discrimine plus l'âge — choix légitime dans un contexte de recrutement automatisé classé haut risque par l'AI Act. Ce choix reste **incomplet** : la francophonie mérite un second cycle de correction, et le paramètre β doit être co-décidé avec LuxTalent.
 
 ---
 
@@ -567,7 +642,7 @@ Le recruteur peut ainsi :
 | **Bootstrap** | Méthode de ré-échantillonnage (tirage avec remise) pour estimer la marge d'erreur d'une métrique. |
 | **Demographic norming** | Pratique consistant à appliquer un standard d'évaluation différent selon un attribut protégé. Illégale en droit du travail européen. |
 | **Demographic Parity (DP)** | Métrique d'équité : exige des selection rates égaux entre groupes. Sensible aux différences de base rate. |
-| **Disparate Impact (DI)** | Ratio min/max des selection rates. Règle des 80% : DI ≥ 0.80 attendu. |
+| **Disparate Impact (DI)** | Ratio min/max des selection rates. Règle des 80% : DI ≥ 0.80 attendu. Sensible aux petits effectifs. |
 | **EOD** | Equal Opportunity Difference : écart max-min des TPR entre groupes. Métrique principale ici. |
 | **Equal Opportunity** | À qualification égale (`Y=1`), tous les groupes doivent avoir la même probabilité d'être détectés. |
 | **Fisher exact** | Test d'indépendance exact pour tables 2×2, valide même avec petits effectifs. |
@@ -579,4 +654,5 @@ Le recruteur peut ainsi :
 
 ---
 
-> *Notebook de référence : [`backend/notebooks/fairness_audit_modif.ipynb`](../notebooks/fairness_audit_modif.ipynb)*
+> *Notebook de référence : [`backend/notebooks/fairness_audit.ipynb`](../notebooks/fairness_audit.ipynb)*
+> *Document éthique de référence (synthèse de la conférence) : [`ethique_synthese.md`](ethique_synthese.md)*
